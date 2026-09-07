@@ -1,7 +1,7 @@
 name: Refresh Lottery History
 
 # Runs the scraper on a schedule and commits history.json if it changed, so the
-# app's "Refresh" button can fetch a URL that's always reasonably current.
+# app can fetch a URL that's always reasonably current.
 #
 # SETUP (one-time, done by you - Claude cannot deploy/host this):
 #   1. Put this file at .github/workflows/refresh-lottery.yml in your repo
@@ -14,6 +14,18 @@ name: Refresh Lottery History
 #        https://raw.githubusercontent.com/<you>/<repo>/main/lottery-scraper/history.json
 #      That URL sends permissive CORS headers, so the app's browser-side
 #      fetch() can read it directly - no separate API server needed.
+#
+# BUG FIX (this version): the "Commit history.json if changed" step previously
+# used `git diff --quiet -- <path>`, which only compares TRACKED files against
+# the index - it does NOT detect brand-new, never-before-committed files (git
+# doesn't know to diff something it isn't tracking yet). This meant that on
+# the very first run (and only the first run), a freshly-generated
+# history.json would be silently treated as "no change - nothing to commit"
+# and never actually pushed, even though the scraper itself ran successfully
+# with no errors - the exact "workflow succeeds, but the file never appears
+# in the repo" symptom this fixes. The fix is to `git add` first, then check
+# `git diff --cached --quiet` instead, which correctly compares the STAGED
+# content against HEAD and detects new files as a real difference.
 #
 # SCHEDULE NOTE: Singapore Pools draws 4D on Wed/Sat/Sun and TOTO on Mon/Thu,
 # both around 6:30pm SGT (= 10:30am UTC). The cron below runs a few times after
@@ -47,15 +59,28 @@ jobs:
         working-directory: lottery-scraper
         run: node scraper.js
 
+      - name: Verify scraper output (diagnostic - shows up in every run's log)
+        working-directory: lottery-scraper
+        run: |
+          if [ -f history.json ]; then
+            echo "history.json exists. Size: $(wc -c < history.json) bytes."
+            echo "Draw counts: $(node -e "const h=require('./history.json'); console.log('4D:', h.fourD.length, '| TOTO:', h.toto.length)")"
+          else
+            echo "::warning::history.json was NOT created by the scraper step - check the 'Run scraper' step's log above for the specific fetch/parse failure (the scraper logs detailed warnings, including response body snippets, rather than failing silently)."
+          fi
+
       - name: Commit history.json if changed
         run: |
           git config user.name "lottery-refresh-bot"
           git config user.email "actions@users.noreply.github.com"
-          if git diff --quiet -- lottery-scraper/history.json; then
+          if [ ! -f lottery-scraper/history.json ]; then
+            echo "::error::history.json does not exist - nothing to commit. See the 'Run scraper' and 'Verify scraper output' steps above for why."
+            exit 1
+          fi
+          git add lottery-scraper/history.json
+          if git diff --cached --quiet; then
             echo "No change in history.json - nothing to commit."
           else
-            git add lottery-scraper/history.json
             git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
             git push
           fi
-
