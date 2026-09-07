@@ -1,0 +1,169 @@
+name: Refresh Lottery History
+
+# Runs the scraper on a schedule and commits history.json if it changed, so the
+# app can fetch a URL that's always reasonably current.
+#
+# SETUP (one-time, done by you - Claude cannot deploy/host this):
+#   1. Put this file at .github/workflows/refresh-lottery.yml in your repo
+#      (the "lottery-scraper" folder, including scraper.js, should sit at the
+#      repo root or wherever you point the `working-directory` below).
+#   2. Push to GitHub. That's it - no secrets needed for a public repo.
+#   3. The resulting history.json becomes readable at:
+#        https://raw.githubusercontent.com/<you>/<repo>/main/lottery-scraper/history.json
+#
+# IMPORTANT - A SETTING OUTSIDE THIS FILE THAT CAN SILENTLY BREAK THIS:
+# GitHub has a REPOSITORY-LEVEL setting that can override the `permissions:`
+# block below entirely: Settings -> Actions -> General -> "Workflow
+# permissions". If that's set to "Read repository contents permission" (the
+# GitHub-wide default for repos created since ~2023), the GITHUB_TOKEN this
+# workflow uses gets NO write access, no matter what this YAML file declares
+# - and `git push` will fail with a permission/403 error. This is a very
+# common, easy-to-miss cause of "the workflow ran, but nothing got pushed."
+# TO FIX: go to your repo's Settings -> Actions -> General, scroll to
+# "Workflow permissions", select "Read and write permissions", and Save.
+# This is a one-time setting per repo, done on GitHub's website - it can't be
+# set from inside this YAML file, which is exactly why it's easy to miss.
+#
+# SCHEDULE NOTE: Singapore Pools draws 4D on Wed/Sat/Sun and TOTO on Mon/Thu,
+# both around 6:30pm SGT (= 10:30am UTC). The cron below runs a few times after
+# each draw window to catch the update without hammering the source site.
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+    - cron: '0 14 * * *'
+    - cron: '0 22 * * *'
+  workflow_dispatch: {} # lets you trigger a manual run from the Actions tab
+
+# BUG FIX: without this, two overlapping runs (e.g. a manual trigger fired while a scheduled run is
+# still in progress, or two manual triggers close together) can both check out the same starting
+# point, both scrape and write history.json, and then race to push - the second one to push always
+# gets rejected by git as a "fast-forward" failure, since the first one already moved the branch
+# forward underneath it. `concurrency` tells GitHub to queue overlapping runs of this workflow one
+# after another instead of letting them run in parallel, which prevents this race at the source
+# rather than just handling it after the fact.
+concurrency:
+  group: refresh-lottery
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Run scraper
+        working-directory: lottery-scraper
+        run: node scraper.js
+
+      - name: Verify scraper output
+        working-directory: lottery-scraper
+        run: |
+          if [ -f history.json ]; then
+            echo "history.json exists. Size: $(wc -c < history.json) bytes."
+            node -e "const h=require('./history.json'); console.log('4D draws:', h.fourD.length, '| TOTO draws:', h.toto.length, '| lastUpdated:', h.lastUpdated)"
+          else
+            echo "::error::history.json was NOT created by the scraper step - the 'Run scraper' step above must have hit a fetch/parse failure. Check its log for 'Scrape failed:' or warning lines."
+            exit 1
+          fi
+
+      - name: Diagnose git/permissions state (always runs, even if a later step fails)
+        if: always()
+        run: |
+          echo "--- Git identity & remote ---"
+          git remote -v
+          echo "--- Current branch (a 'HEAD detached' result here would explain a push failure) ---"
+          git branch --show-current || echo "WARNING: not on a branch (detached HEAD) - git push would fail without an explicit branch argument"
+          echo "--- Token permission check: attempting a test call to the GitHub API with this run's token ---"
+          curl -s -o /dev/null -w "GitHub API responded with HTTP %{http_code} for this token (200 = token works; 401/403 = token/permission problem)\n" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}"
+
+      - name: Commit history.json if changed
+        run: |
+          git config user.name "lottery-refresh-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if [ ! -f lottery-scraper/history.json ]; then
+            echo "::error::history.json does not exist - nothing to commit."
+            exit 1
+          fi
+
+          echo "--- Is this file gitignored? (if yes, that alone would silently block a plain 'git add') ---"
+          git check-ignore -v lottery-scraper/history.json && echo "::warning::history.json IS matched by a .gitignore rule shown above - forcing it to be added anyway below, but consider removing that rule so this is tracked normally." || echo "Not gitignored - OK."
+
+          echo "--- What does HEAD currently have for this file? ---"
+          git show HEAD:lottery-scraper/history.json > /tmp/head_version.json 2>/dev/null && echo "HEAD has a tracked version. Its lastUpdated: $(node -e "console.log(require('/tmp/head_version.json').lastUpdated)" 2>/dev/null || echo 'could not parse')" || echo "HEAD has NO tracked version of this file yet (this would be the first commit of it)."
+          echo "This run's freshly-written lastUpdated: $(node -e "console.log(require('./lottery-scraper/history.json').lastUpdated)")"
+
+          # BUG FIX: use -f (force) so this is added even if some .gitignore rule would otherwise
+          # silently block a plain `git add` (which fails with a warning, not an error, and would
+          # leave nothing staged - `git diff --cached` would then trivially report "no change" even
+          # though the working-tree file is brand new, exactly mimicking the original bug this was
+          # already fixed for). This file is always meant to be tracked, so forcing past any
+          # accidental ignore rule is the correct behaviour here.
+          git add -f lottery-scraper/history.json
+
+          echo "--- Staged diff summary (should show real changes if the content actually differs) ---"
+          git diff --cached --stat -- lottery-scraper/history.json
+
+          if git diff --cached --quiet -- lottery-scraper/history.json; then
+            echo "No change in history.json content - nothing new to commit."
+          else
+            # Save our freshly-scraped content before any reset below - `git reset --hard` rewrites
+            # the working tree too, which would otherwise wipe out the very file we're trying to commit.
+            cp lottery-scraper/history.json /tmp/fresh_history.json
+
+            git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            echo "--- Attempting push (with retry-on-race, in case another run pushed in the meantime) ---"
+            PUSH_OK=false
+            for attempt in 1 2 3; do
+              PUSH_OUTPUT=$(git push 2>&1)
+              PUSH_EXIT=$?
+              echo "$PUSH_OUTPUT"
+              if [ $PUSH_EXIT -eq 0 ]; then
+                echo "Push succeeded on attempt $attempt."
+                PUSH_OK=true
+                break
+              fi
+              # BUG FIX: a fast-forward rejection ("! [rejected] ... fetch first") means another run
+              # pushed a commit to this branch between our checkout and our push - it is NOT a
+              # permissions problem, and the old error message here incorrectly blamed "Workflow
+              # permissions" for this every time, which would send you chasing a setting that was
+              # never the issue. The `concurrency:` block added to this workflow should prevent this
+              # from happening in the first place by queuing overlapping runs, but if it still occurs
+              # (e.g. a run already mid-flight before this fix was deployed), resync to the latest
+              # remote state and re-apply our freshly-scraped data on top, rather than failing
+              # immediately. A plain rebase was deliberately avoided here: both the local and remote
+              # commits touch the exact same file (history.json), which a rebase would likely turn
+              # into a merge conflict needing manual resolution - something a scheduled bot obviously
+              # can't do. Resetting to the remote's latest state and re-committing our already-known
+              # data on top sidesteps that entirely.
+              if echo "$PUSH_OUTPUT" | grep -qi "rejected"; then
+                echo "Push rejected (attempt $attempt/3) - another run updated the branch first. Resyncing to the latest remote state and re-applying our data..."
+                git fetch origin
+                git reset --hard origin/main
+                cp /tmp/fresh_history.json lottery-scraper/history.json
+                git add -f lottery-scraper/history.json
+                if git diff --cached --quiet -- lottery-scraper/history.json; then
+                  echo "After resyncing, our data matches what's already on the remote (the other run committed the same content) - nothing left to do."
+                  PUSH_OK=true
+                  break
+                fi
+                git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+              else
+                echo "::error::git push failed with an error that isn't a fast-forward rejection (see output above) - this looks like a genuine permissions or branch-protection problem. Check Settings -> Actions -> General -> 'Workflow permissions' is set to 'Read and write permissions', and check for any branch protection rules on 'main' that might block this bot's account."
+                exit $PUSH_EXIT
+              fi
+            done
+            if [ "$PUSH_OK" != "true" ]; then
+              echo "::error::git push still failed after 3 attempts, even after resyncing each time. This suggests runs are overlapping faster than they can be resolved - check the Actions tab for other runs of this workflow happening at the same time, and consider whether the concurrency: setting at the top of this file is actually in effect (it only applies once this updated file is the one GitHub is using)."
+              exit 1
+            fi
+          fi
