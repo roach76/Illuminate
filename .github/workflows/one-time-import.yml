@@ -1,0 +1,40 @@
+```yaml
+name: One-Time Historical Import
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-lottery
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - name: Run 4D import
+        working-directory: lottery-scraper
+        run: node import-historical-4d.js
+      - name: Run TOTO import (only works if ToTo.csv is already in this folder)
+        working-directory: lottery-scraper
+        run: |
+          if [ -f ToTo.csv ]; then
+            node import-historical-toto.js
+          else
+            echo "ToTo.csv not found in lottery-scraper/ - skipping TOTO import. Upload your CSV there first, then re-run this workflow."
+          fi
+      - name: Commit results
+        run: |
+          git config user.name "lottery-refresh-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -f lottery-scraper/history.json
+          git diff --cached --quiet && echo "No change" || git commit -m "One-time historical import"
+          git push
+```
