@@ -139,6 +139,21 @@ confident forecast.
 
 ## Limitations (being upfront)
 
+- **4D backfill depth**: only what check4d.co's past-results page shows for
+  the current year (~30-35 draws) - a full historical archive would need a
+  different/deeper source, which wasn't identified during development.
+- **4D backfill detail**: only 1st/2nd/3rd for backfilled dates, not the full
+  23-number breakdown, since the past-results table doesn't expose that.
+- **TOTO backfill**: none found - history accumulates one draw per run only.
+- **Scraper fragility**: same caveat as before - if check4d.co changes its
+  page layout, `scraper.js` will need updating. Check the Action's run logs
+  under the **Actions** tab if `history.json` stops updating.
+- **Not run against the live site** from this development environment (no
+  network access to check4d.co here) - all parsing logic was verified against
+  captured real page text and a synthetic 30-draw dataset, but the actual
+  first live run is the real test. Spot-check `history.json` manually the
+  first time.
+
 ## Fixed bug: history.json never appeared even on a successful run
 
 If you set this up before and saw the workflow complete with no errors, yet
@@ -159,20 +174,34 @@ the resulting draw counts (or a clear warning if the file wasn't created)
 directly in every run's log, so any future issue is visible without needing
 to guess.
 
-- **4D backfill depth**: only what check4d.co's past-results page shows for
-  the current year (~30-35 draws) - a full historical archive would need a
-  different/deeper source, which wasn't identified during development.
-- **4D backfill detail**: only 1st/2nd/3rd for backfilled dates, not the full
-  23-number breakdown, since the past-results table doesn't expose that.
-- **TOTO backfill**: none found - history accumulates one draw per run only.
-- **Scraper fragility**: same caveat as before - if check4d.co changes its
-  page layout, `scraper.js` will need updating. Check the Action's run logs
-  under the **Actions** tab if `history.json` stops updating.
-- **Not run against the live site** from this development environment (no
-  network access to check4d.co here) - all parsing logic was verified against
-  captured real page text and a synthetic 30-draw dataset, but the actual
-  first live run is the real test. Spot-check `history.json` manually the
-  first time.
+## Still not appearing after the git-diff fix? Check this repo setting
+
+If `history.json` is still not showing up even after updating to the fixed
+`refresh-lottery.yml`, the next most common cause is a **repository setting
+that lives outside this YAML file entirely** and can silently override it:
+
+**GitHub repo → Settings → Actions → General → "Workflow permissions"**
+
+If this is set to **"Read repository contents permission"** (this has been
+GitHub's default for new repos since around 2023), the automatic token this
+workflow uses gets **no write access at all**, no matter what this file's
+`permissions: contents: write` line says. `git push` then fails with a
+permission error.
+
+**Fix**: on that same settings page, select **"Read and write permissions"**
+and save. This is a one-time, per-repo setting done on GitHub's website - it
+cannot be set from inside the workflow file, which is exactly why it's easy
+to overlook.
+
+The updated `refresh-lottery.yml` in this delivery adds explicit diagnostic
+steps (a git remote/branch check, a direct test of whether the run's token
+can even authenticate to the GitHub API, and clear `::error::` messages if
+the push itself fails) so if this - or anything else - is the cause, it will
+show up plainly in that run's log instead of failing silently. **Please
+share that log output** (the "Diagnose git/permissions state" and "Commit
+history.json if changed" steps specifically) if it still doesn't work after
+checking the setting above - that will let this be diagnosed from evidence
+rather than another guess.
 
 ## Why this needs a repo + Action, and can't just be a "Refresh" button
 
