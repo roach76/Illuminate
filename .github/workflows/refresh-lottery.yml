@@ -83,8 +83,26 @@ jobs:
             echo "::error::history.json does not exist - nothing to commit."
             exit 1
           fi
-          git add lottery-scraper/history.json
-          if git diff --cached --quiet; then
+
+          echo "--- Is this file gitignored? (if yes, that alone would silently block a plain 'git add') ---"
+          git check-ignore -v lottery-scraper/history.json && echo "::warning::history.json IS matched by a .gitignore rule shown above - forcing it to be added anyway below, but consider removing that rule so this is tracked normally." || echo "Not gitignored - OK."
+
+          echo "--- What does HEAD currently have for this file? ---"
+          git show HEAD:lottery-scraper/history.json > /tmp/head_version.json 2>/dev/null && echo "HEAD has a tracked version. Its lastUpdated: $(node -e "console.log(require('/tmp/head_version.json').lastUpdated)" 2>/dev/null || echo 'could not parse')" || echo "HEAD has NO tracked version of this file yet (this would be the first commit of it)."
+          echo "This run's freshly-written lastUpdated: $(node -e "console.log(require('./lottery-scraper/history.json').lastUpdated)")"
+
+          # BUG FIX: use -f (force) so this is added even if some .gitignore rule would otherwise
+          # silently block a plain `git add` (which fails with a warning, not an error, and would
+          # leave nothing staged - `git diff --cached` would then trivially report "no change" even
+          # though the working-tree file is brand new, exactly mimicking the original bug this was
+          # already fixed for). This file is always meant to be tracked, so forcing past any
+          # accidental ignore rule is the correct behaviour here.
+          git add -f lottery-scraper/history.json
+
+          echo "--- Staged diff summary (should show real changes if the content actually differs) ---"
+          git diff --cached --stat -- lottery-scraper/history.json
+
+          if git diff --cached --quiet -- lottery-scraper/history.json; then
             echo "No change in history.json content - nothing new to commit."
           else
             git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
