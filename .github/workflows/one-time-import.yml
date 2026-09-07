@@ -1,5 +1,20 @@
-```yaml
 name: One-Time Historical Import
+
+# One-time (or occasional) workflow to run the historical 4D and TOTO import scripts via GitHub
+# Actions, for anyone who'd rather not install Node.js locally. See
+# lottery-scraper/HOW_TO_RUN_HISTORICAL_IMPORTS.md for full instructions.
+#
+# This file is provided as a standalone, directly-downloadable file rather than only as a
+# copy-paste code block in a markdown guide, specifically to avoid a class of problems where
+# copying YAML out of a rendered markdown viewer can silently corrupt it (smart-quote conversion,
+# whitespace changes, or line-wrap issues) - upload this file exactly as downloaded, byte for byte,
+# rather than re-typing or copy-pasting its content.
+#
+# SETUP: upload this file to your repo at exactly .github/workflows/one-time-import.yml
+#
+# For the TOTO import to do anything, your TOTO CSV must already be uploaded to your repo at
+# lottery-scraper/ToTo.csv before you run this - the 4D import needs no such file, since it
+# downloads its own data automatically.
 
 on:
   workflow_dispatch: {}
@@ -16,12 +31,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
       - uses: actions/setup-node@v5
         with:
           node-version: '24'
+
       - name: Run 4D import
         working-directory: lottery-scraper
         run: node import-historical-4d.js
+
       - name: Run TOTO import (only works if ToTo.csv is already in this folder)
         working-directory: lottery-scraper
         run: |
@@ -30,11 +48,15 @@ jobs:
           else
             echo "ToTo.csv not found in lottery-scraper/ - skipping TOTO import. Upload your CSV there first, then re-run this workflow."
           fi
+
       - name: Commit results
         run: |
           git config user.name "lottery-refresh-bot"
           git config user.email "actions@users.noreply.github.com"
           git add -f lottery-scraper/history.json
-          git diff --cached --quiet && echo "No change" || git commit -m "One-time historical import"
-          git push
-```
+          if git diff --cached --quiet; then
+            echo "No change in history.json - nothing to commit."
+          else
+            git commit -m "One-time historical import"
+            git push
+          fi
