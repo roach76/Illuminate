@@ -7,25 +7,22 @@ name: Refresh Lottery History
 #   1. Put this file at .github/workflows/refresh-lottery.yml in your repo
 #      (the "lottery-scraper" folder, including scraper.js, should sit at the
 #      repo root or wherever you point the `working-directory` below).
-#   2. Push to GitHub. That's it - no secrets or extra config needed for a
-#      public repo, since this only reads a public webpage and writes back to
-#      your own repo using the built-in GITHUB_TOKEN.
+#   2. Push to GitHub. That's it - no secrets needed for a public repo.
 #   3. The resulting history.json becomes readable at:
 #        https://raw.githubusercontent.com/<you>/<repo>/main/lottery-scraper/history.json
-#      That URL sends permissive CORS headers, so the app's browser-side
-#      fetch() can read it directly - no separate API server needed.
 #
-# BUG FIX (this version): the "Commit history.json if changed" step previously
-# used `git diff --quiet -- <path>`, which only compares TRACKED files against
-# the index - it does NOT detect brand-new, never-before-committed files (git
-# doesn't know to diff something it isn't tracking yet). This meant that on
-# the very first run (and only the first run), a freshly-generated
-# history.json would be silently treated as "no change - nothing to commit"
-# and never actually pushed, even though the scraper itself ran successfully
-# with no errors - the exact "workflow succeeds, but the file never appears
-# in the repo" symptom this fixes. The fix is to `git add` first, then check
-# `git diff --cached --quiet` instead, which correctly compares the STAGED
-# content against HEAD and detects new files as a real difference.
+# IMPORTANT - A SETTING OUTSIDE THIS FILE THAT CAN SILENTLY BREAK THIS:
+# GitHub has a REPOSITORY-LEVEL setting that can override the `permissions:`
+# block below entirely: Settings -> Actions -> General -> "Workflow
+# permissions". If that's set to "Read repository contents permission" (the
+# GitHub-wide default for repos created since ~2023), the GITHUB_TOKEN this
+# workflow uses gets NO write access, no matter what this YAML file declares
+# - and `git push` will fail with a permission/403 error. This is a very
+# common, easy-to-miss cause of "the workflow ran, but nothing got pushed."
+# TO FIX: go to your repo's Settings -> Actions -> General, scroll to
+# "Workflow permissions", select "Read and write permissions", and Save.
+# This is a one-time setting per repo, done on GitHub's website - it can't be
+# set from inside this YAML file, which is exactly why it's easy to miss.
 #
 # SCHEDULE NOTE: Singapore Pools draws 4D on Wed/Sat/Sun and TOTO on Mon/Thu,
 # both around 6:30pm SGT (= 10:30am UTC). The cron below runs a few times after
@@ -33,10 +30,6 @@ name: Refresh Lottery History
 
 on:
   schedule:
-    # 12:00, 14:00, 22:00 UTC daily (= 8pm, 10pm, 6am SGT) - covers the post-draw
-    # window with a little buffer for the mirror site to update, plus a morning
-    # catch-up run. Adjust freely; GitHub's cron scheduling can drift by a few
-    # minutes at busy times, which doesn't matter for this use case.
     - cron: '0 12 * * *'
     - cron: '0 14 * * *'
     - cron: '0 22 * * *'
@@ -59,28 +52,48 @@ jobs:
         working-directory: lottery-scraper
         run: node scraper.js
 
-      - name: Verify scraper output (diagnostic - shows up in every run's log)
+      - name: Verify scraper output
         working-directory: lottery-scraper
         run: |
           if [ -f history.json ]; then
             echo "history.json exists. Size: $(wc -c < history.json) bytes."
-            echo "Draw counts: $(node -e "const h=require('./history.json'); console.log('4D:', h.fourD.length, '| TOTO:', h.toto.length)")"
+            node -e "const h=require('./history.json'); console.log('4D draws:', h.fourD.length, '| TOTO draws:', h.toto.length, '| lastUpdated:', h.lastUpdated)"
           else
-            echo "::warning::history.json was NOT created by the scraper step - check the 'Run scraper' step's log above for the specific fetch/parse failure (the scraper logs detailed warnings, including response body snippets, rather than failing silently)."
+            echo "::error::history.json was NOT created by the scraper step - the 'Run scraper' step above must have hit a fetch/parse failure. Check its log for 'Scrape failed:' or warning lines."
+            exit 1
           fi
+
+      - name: Diagnose git/permissions state (always runs, even if a later step fails)
+        if: always()
+        run: |
+          echo "--- Git identity & remote ---"
+          git remote -v
+          echo "--- Current branch (a 'HEAD detached' result here would explain a push failure) ---"
+          git branch --show-current || echo "WARNING: not on a branch (detached HEAD) - git push would fail without an explicit branch argument"
+          echo "--- Token permission check: attempting a test call to the GitHub API with this run's token ---"
+          curl -s -o /dev/null -w "GitHub API responded with HTTP %{http_code} for this token (200 = token works; 401/403 = token/permission problem)\n" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}"
 
       - name: Commit history.json if changed
         run: |
           git config user.name "lottery-refresh-bot"
           git config user.email "actions@users.noreply.github.com"
           if [ ! -f lottery-scraper/history.json ]; then
-            echo "::error::history.json does not exist - nothing to commit. See the 'Run scraper' and 'Verify scraper output' steps above for why."
+            echo "::error::history.json does not exist - nothing to commit."
             exit 1
           fi
           git add lottery-scraper/history.json
           if git diff --cached --quiet; then
-            echo "No change in history.json - nothing to commit."
+            echo "No change in history.json content - nothing new to commit."
           else
             git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
-            git push
+            echo "--- Attempting push ---"
+            if git push; then
+              echo "Push succeeded."
+            else
+              PUSH_EXIT=$?
+              echo "::error::git push FAILED (exit code $PUSH_EXIT). This is almost always the repository's Settings -> Actions -> General -> 'Workflow permissions' being set to read-only - see the comment block at the top of this file for the exact fix. It can also mean branch protection rules on this branch are blocking the bot's push."
+              exit $PUSH_EXIT
+            fi
           fi
