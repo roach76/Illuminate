@@ -15,53 +15,81 @@ This folder adds two things to the 4D/TOTO section:
 - `import-historical-4d.js` — **optional, run manually** - a one-time (or
   occasional) importer that pulls a community-compiled dataset covering
   every 4D draw back to 1986, dramatically deepening your history beyond
-  what `scraper.js` alone can backfill. See "Deep historical 4D import"
-  below.
+  what `scraper.js` alone can backfill. See "Deep historical import" below.
+- `import-historical-toto.js` — **optional, run manually** - the TOTO
+  equivalent, importing a user-supplied CSV covering every TOTO draw from
+  2008 onward. See "Deep historical import" below.
 - `refresh-lottery.yml` — GitHub Action that runs the scraper on a schedule
   and commits `history.json` back to your repo automatically. The repository
   grows over time; nothing is ever overwritten, only appended/merged.
 - `history.json` — **not included** — generated on first run. Don't
   hand-create it.
 
-## Deep historical 4D import (1986 onward) — optional, run manually
+## Deep historical import (4D + TOTO) — optional, run manually
 
 `scraper.js`'s own backfill only reaches back to the current year (~35
-draws) because that's all check4d.co's past-results table exposes. For much
-deeper history, `import-historical-4d.js` pulls a community-compiled dataset
+draws for 4D, ~1/run for TOTO) because that's all check4d.co exposes. Two
+separate import scripts close that gap with genuinely deep, verified
+historical data - after running both, `scraper.js` only needs to keep
+capturing the *latest* draw going forward; everything else is covered.
+
+### 4D: `import-historical-4d.js`
+
+Pulls a community-compiled dataset
 ([Singapore-Pools-Dataset on GitHub](https://github.com/foooooooooooooooooooooooooootw/Singapore-Pools-Dataset))
 covering every 4D draw from 31 May 1986 onward - confirmed (by actually
-running this import) to bring in **5,508 real, dated draws**, instantly
-clearing the 1000-draw target this project has been working toward.
+running this import) to bring in **5,508 real, dated draws**.
 
-**Run it once:**
 ```
 cd lottery-scraper
 node import-historical-4d.js
 ```
-This merges into your existing `history.json` (creating one if it doesn't
-exist yet) using the same "prefer the fuller record" merge logic as
-`scraper.js`, so it's safe to run alongside your existing scheduled Action
-and won't downgrade any data `scraper.js` has already collected. It's also
-safe to re-run later if the source dataset gets updated.
+
+### TOTO: `import-historical-toto.js`
+
+Imports a user-supplied historical TOTO CSV. Unlike the 4D dataset above,
+this one was directly validated end-to-end before writing any code against
+it - every one of its 1,810 rows was checked for valid dates, valid number
+ranges, no duplicates, and no missing values, and it came back completely
+clean. Confirmed (by actually running this import) to bring in **1,810
+real, dated TOTO draws spanning 3 July 2008 to 2 February 2026** - the
+first time this project has had a meaningful TOTO history at all.
+
+```
+cd lottery-scraper
+node import-historical-toto.js          # expects ToTo.csv in this folder
+node import-historical-toto.js path/to/your-file.csv   # or pass a path explicitly
+```
+
+Place your TOTO CSV in the `lottery-scraper/` folder (named `ToTo.csv`, or
+pass its path as an argument) before running. Expected columns: `Draw,
+Date, Winning Number 1, 2, 3, 4, 5, 6, Additional Number, ...` (any further
+columns, such as prize division data, are read but intentionally ignored -
+only the draw number, date, and numbers are needed).
+
+Both scripts merge into your existing `history.json` (creating one if it
+doesn't exist yet), so it's safe to run one, the other, or both, in any
+order, and safe to re-run either later if you obtain updated source data.
+Together, both games now clear the 1000-draw target this project has been
+working toward - 4D at 5,508 and TOTO at 1,810.
 
 **Important limitations, stated plainly:**
-- **TOTO is not covered.** The source dataset's TOTO file has every single
-  date recorded as `0001/01/01` - a data-entry error the source repo's own
-  README acknowledges. Since this app's history is keyed by real dates, that
-  file cannot be used at all. TOTO continues to rely solely on `scraper.js`'s
-  slower, real-dated accumulation.
-- **This is a snapshot, not a live feed.** As of when this was built, the
-  dataset's most recent entry was 12 July 2026 - keep running `scraper.js`
-  on its normal schedule to fill in everything from that date to today, and
-  going forward.
-- **Not every historical draw has the full 23-number breakdown** - some
+- **Both are snapshots, not live feeds.** As of when these were built, the
+  4D dataset's most recent entry was 12 July 2026 and the TOTO dataset's was
+  2 February 2026 - keep running `scraper.js` on its normal schedule to fill
+  in everything from those dates to today, and going forward. The TOTO gap
+  in particular (~7 months as of writing) will only close gradually, since
+  TOTO draws just 2x/week and `scraper.js` has no TOTO backfill source of
+  its own - only the ongoing live-page fetch.
+- **Not every historical 4D draw has the full 23-number breakdown** - some
   older entries in the source data have fewer numbers than a complete draw.
   This import honestly reflects that (marking `full: true` only when a
   genuine 23-number set was found for that specific draw) rather than
-  assuming completeness.
-- This is a **third-party compiled dataset**, not something scraped by this
-  project from Singapore Pools directly - see the note below on why that
-  distinction matters.
+  assuming completeness. TOTO draws don't have this issue - every validated
+  row has the complete 6+1 numbers.
+- Both are **user-supplied or third-party compiled datasets**, not scraped
+  by this project from Singapore Pools directly - see the note below on why
+  that distinction matters.
 
 **A related fix**: the app's own live-data loader used to reject
 `history.json` entirely if *either* game's array was empty. That was too
@@ -142,24 +170,19 @@ the "Most Recent 3 Draws" list and the past-draws browser - are highlighted:
 
 ## Reaching 1000+ draws
 
-**For 4D, this is now solved directly** - run `import-historical-4d.js` once
-(see "Deep historical 4D import" above) and you'll have 5,508+ real draws
-immediately, no waiting required.
-
-**For TOTO, no equivalent source was found.** 1000 draws is TOTO's target
-floor. TOTO draws 2x/week (~104/year), and with no backfill or import source
-identified, reaching 1000 from zero would take roughly 10 years of organic,
-real-dated accumulation via `scraper.js`'s scheduled runs. Since nothing is
-ever dropped, the count only ever goes up from here - but the honest
-expectation is that TOTO's repository will stay comparatively small for a
-long time unless a better source is found later.
+**Both games now clear this target directly.** Run `import-historical-4d.js`
+and `import-historical-toto.js` once each (see "Deep historical import"
+above) and you'll have 5,508 4D draws and 1,810 TOTO draws immediately, no
+waiting required.
 
 `scraper.js` also makes best-effort attempts at a few plausible prior-year
 archive URLs on check4d.co (`/sgpools/past/2025/`, `/sgpools/past/?year=2025`,
 etc.) on each run, for whatever residual gap-filling that might offer, though
 in practice these have been confirmed to just return the current year's page
 regardless of the year requested (see the scraper's own logs, which now
-detect and report this rather than logging it as a false success).
+detect and report this rather than logging it as a false success). With the
+historical imports above in place, this no longer matters much either way -
+it was the only lever available before real historical datasets were found.
 
 ## One-time setup
 
