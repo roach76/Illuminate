@@ -262,6 +262,35 @@ TOTO repository could sit at 1 draw for weeks, always showing a "not enough
 data" message instead of a working date picker. Fixed to show a functional
 (if minimal) browser as soon as there's at least 1 draw.
 
+## Fixed: "git push rejected" from overlapping runs, and a misleading error message
+
+A real run hit `! [rejected] main -> main (fetch first)` on push - this
+happens when two runs of this workflow overlap (e.g. a manual "Run workflow"
+click while a scheduled run is still in progress) and both try to push at
+roughly the same time; whichever pushes second gets rejected because the
+first one already moved the branch forward underneath it. **This is not a
+permissions problem** - but the previous version of this file's error
+message said it almost always was, which would have sent you to double-check
+a setting that was never the issue. Reproduced this exact failure locally
+(two clones racing to push to the same repo) to confirm both the diagnosis
+and the fix before shipping it.
+
+Two changes:
+
+1. **`concurrency:` added to the workflow** - this tells GitHub to queue
+   overlapping runs of this specific workflow one after another instead of
+   letting them run in parallel, which prevents the race from happening in
+   the first place.
+2. **Retry logic added as a backstop**, in case a race still slips through
+   (e.g. a run already in flight before this fix was deployed). On a
+   rejected push, the script re-fetches the latest remote state, resets onto
+   it, re-applies the *same* freshly-scraped data on top (rather than a git
+   rebase, which would likely conflict since both commits touch the exact
+   same file), and retries - up to 3 attempts. A genuine non-rejection
+   failure (real permissions/branch-protection problem) still fails
+   immediately with an accurate error message, rather than retrying
+   pointlessly or being misdiagnosed as the same thing every time.
+
 ## Why this needs a repo + Action, and can't just be a "Refresh" button
 
 A button in the app runs JavaScript **in your browser**. Two separate walls
