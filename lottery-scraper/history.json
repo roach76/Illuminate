@@ -1,6 +1,6 @@
 {
-  "lastUpdated": "2026-09-07T10:28:33.335Z",
-  "source": "User-provided historical TOTO dataset (import-historical-toto.js) + https://check4d.co/sgpools/ (ongoing scraper.js updates)",
+  "lastUpdated": "2026-09-07T17:09:21.825Z",
+  "source": "https://check4d.co/sgpools/",
   "fourD": [
     {
       "isoDate": "2026-09-06",
@@ -170770,6 +170770,20 @@
     }
   ],
   "toto": [
+    {
+      "isoDate": "2026-09-07",
+      "date": "Mon 7 Sep 2026",
+      "drawNo": "4215",
+      "winning": [
+        4,
+        7,
+        13,
+        23,
+        27,
+        32
+      ],
+      "additional": 48
+    },
     {
       "isoDate": "2026-09-03",
       "date": "Thu 3 Sep 2026",
