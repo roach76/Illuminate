@@ -203,6 +203,41 @@ history.json if changed" steps specifically) if it still doesn't work after
 checking the setting above - that will let this be diagnosed from evidence
 rather than another guess.
 
+## Update: real log evidence found a different cause (gitignore / silent-add)
+
+A real workflow run's log was reviewed directly (permissions were already
+correctly set to read/write, ruling that out). The scraper ran successfully
+and wrote `history.json` with fresh data every time, but the commit step
+still reported "No change in history.json - nothing to commit" - which
+shouldn't happen for a freshly-written file with a new timestamp, and was
+verified locally to be genuinely unexpected behaviour for a plain `git add`.
+
+The most likely explanation: a `.gitignore` rule matching `history.json` (or
+a broader pattern like `*.json`) causes `git add <path>` to silently fail
+(it exits with a warning, not a loud error) - leaving nothing staged, so the
+subsequent diff check trivially reports "no change" even though the
+working-tree file is genuinely new. This was confirmed as plausible via a
+local reproduction.
+
+**Fixed** by changing the commit step to use `git add -f` (force-add),
+which stages the file regardless of any `.gitignore` rule - appropriate
+here since this file is always meant to be tracked. The step also now
+prints whether the file is gitignored, what HEAD's current version's
+timestamp is (if any), and this run's freshly-written timestamp, so if this
+still doesn't resolve it, the next run's log will show the exact byte-level
+comparison rather than a bare "no change."
+
+**Also fixed while reviewing that log**: the "prior-year backfill" (trying
+`?year=2025`, `?year=2024`, etc.) was reporting a false success for every
+year 2018-2025, each claiming to find the same 37 entries - because
+check4d.co silently ignores the year parameter and just serves the current
+year's page regardless. This was harmless in practice (results were deduped
+by date, so no bad data got stored) but wasted 8 extra fetches per run and
+produced misleading log output. The scraper now checks that returned dates
+actually fall within the requested year before counting it as a real
+success, and gives up immediately once one year fails rather than trying
+seven more that are equally certain to fail the same way.
+
 ## Why this needs a repo + Action, and can't just be a "Refresh" button
 
 A button in the app runs JavaScript **in your browser**. Two separate walls

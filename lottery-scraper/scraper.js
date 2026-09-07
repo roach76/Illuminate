@@ -202,11 +202,20 @@ async function main() {
       try {
         const html = await fetchPage(url);
         const entries = parsePast4DTable(htmlToText(html));
-        if (entries.length > 0) {
-          console.log(`Prior-year backfill (${year}) via ${url}: found ${entries.length} entries.`);
-          entries.forEach(e => mergeEntry(history.fourD, e));
+        // BUG FIX: check4d.co silently ignores the ?year=/  /YYYY/ query and just returns the current
+        // year's default page for every URL tried - confirmed by a real run where "2025", "2024",
+        // ..."2018" all reported the exact same 37 entries. Without this check, that gets logged as 8
+        // false "successes" and wastefully re-merges the SAME current-year rows repeatedly (harmless
+        // since mergeEntry dedupes by date, but misleading). Only count this as real backfill data if
+        // at least one returned entry's date actually falls in the requested year.
+        const entriesActuallyInYear = entries.filter(e => e.isoDate.startsWith(String(year)));
+        if (entriesActuallyInYear.length > 0) {
+          console.log(`Prior-year backfill (${year}) via ${url}: found ${entriesActuallyInYear.length} entries actually dated in ${year}.`);
+          entriesActuallyInYear.forEach(e => mergeEntry(history.fourD, e));
           succeededThisYear = true;
           break;
+        } else if (entries.length > 0) {
+          console.log(`Prior-year backfill (${year}) via ${url}: page returned ${entries.length} entries, but none were actually dated in ${year} - this URL pattern doesn't really filter by year on this site (it's just serving the default/current-year page), so this is NOT counted as a real success.`);
         }
       } catch (e) {
         // Expected to fail if this URL pattern isn't real for this site - not logged as a warning
@@ -214,7 +223,7 @@ async function main() {
       }
     }
     if (!succeededThisYear) {
-      console.log(`Prior-year backfill (${year}): no working URL pattern found - skipping (this is expected if check4d.co has no multi-year archive; see README).`);
+      console.log(`Prior-year backfill (${year}): no working URL pattern found - skipping (this is expected, check4d.co does not appear to have a real multi-year archive; see README).`);
       break; // stop trying earlier years once one fails, since they're unlikely to work if this one didn't
     }
   }
