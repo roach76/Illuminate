@@ -139,6 +139,26 @@ confident forecast.
 
 ## Limitations (being upfront)
 
+## Fixed bug: history.json never appeared even on a successful run
+
+If you set this up before and saw the workflow complete with no errors, yet
+`history.json` never showed up in the repo, this was a real bug (now fixed)
+in `refresh-lottery.yml`'s commit step: it used `git diff --quiet -- <path>`
+to decide whether to commit, but that command only compares **tracked**
+files against the index - it doesn't detect a brand-new file that git has
+never seen before. On the very first run (and only the first run),
+`history.json` would be silently treated as "no change - nothing to commit"
+and the commit/push would never happen, even though the scraper itself ran
+perfectly. The fix stages the file first (`git add`) and then checks
+`git diff --cached --quiet`, which correctly detects new files as a real
+difference. If you already have the old version of this file, replace it
+with the updated one in this delivery.
+
+The updated workflow also adds a "Verify scraper output" step that prints
+the resulting draw counts (or a clear warning if the file wasn't created)
+directly in every run's log, so any future issue is visible without needing
+to guess.
+
 - **4D backfill depth**: only what check4d.co's past-results page shows for
   the current year (~30-35 draws) - a full historical archive would need a
   different/deeper source, which wasn't identified during development.

@@ -60,7 +60,15 @@ function formatIsoDate(isoDate, dayAbbr) {
 
 async function fetchPage(url) {
   const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IlluminateLotterySync/2.0; +https://github.com/)' } });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText} for ${url}`);
+  if (!res.ok) {
+    // DIAGNOSTIC FIX: include a snippet of the response body in the thrown error. A non-2xx status
+    // alone doesn't distinguish "site is down", "URL is wrong", and "bot-blocked" (e.g. a Cloudflare
+    // challenge or WAF block page, which often still returns a body worth seeing) - the snippet makes
+    // the actual cause visible in the Action's logs instead of a bare status code.
+    let bodySnippet = '';
+    try { bodySnippet = (await res.text()).slice(0, 300); } catch (e) { /* body already consumed or unreadable - ignore */ }
+    throw new Error(`Fetch failed: ${res.status} ${res.statusText} for ${url}${bodySnippet ? ` | Response body snippet: ${bodySnippet.replace(/\s+/g, ' ')}` : ''}`);
+  }
   return res.text();
 }
 
@@ -164,6 +172,12 @@ async function main() {
     const pastHtml = await fetchPage(PAST_4D_URL);
     const pastEntries = parsePast4DTable(htmlToText(pastHtml));
     console.log(`Backfill found ${pastEntries.length} 4D entries in the past-results table (current year).`);
+    if (pastEntries.length === 0) {
+      // Fetched successfully (no HTTP error) but found zero matching rows - almost certainly means
+      // the table's HTML structure no longer matches parsePast4DTable's regex. Dump a diagnostic
+      // snippet so this is visible without needing a separate debugging round-trip.
+      console.warn('DIAGNOSTIC - 4D backfill fetched OK but matched 0 rows. First 500 chars of page text:', htmlToText(pastHtml).slice(0, 500));
+    }
     pastEntries.forEach(e => mergeEntry(history.fourD, e));
   } catch (e) {
     console.warn('4D backfill failed (non-fatal, continuing with live-page fetch only):', e.message);
@@ -207,27 +221,48 @@ async function main() {
 
 
   console.log('Fetching live page:', LIVE_URL);
-  const liveText = htmlToText(await fetchPage(LIVE_URL));
-
+  // BUG 5 FIX: this fetch previously had NO try/catch around it at all - if it threw for ANY reason
+  // (network error, timeout, or the site blocking/challenging the request), the exception propagated
+  // all the way to main()'s outer .catch(), which calls process.exit(1) BEFORE history.json is ever
+  // written - discarding any successfully-gathered backfill data from the steps above, and leaving no
+  // trace of WHY in a form that's easy to diagnose. Wrapping this fetch (and logging a body/diagnostic
+  // snippet on failure) means: (a) a live-fetch failure no longer wipes out otherwise-good backfill
+  // data, and (b) the next run's logs will show, in plain text, whether the problem is a network
+  // issue, an HTTP error with a body snippet (e.g. a bot-block/challenge page), or a successfully
+  // fetched page whose structure no longer matches what parseFourDLive/parseTotoLive expect.
+  let liveText = null;
   try {
-    const fourDLive = parseFourDLive(liveText);
-    mergeEntry(history.fourD, fourDLive);
+    liveText = htmlToText(await fetchPage(LIVE_URL));
   } catch (e) {
-    console.warn('Live 4D parse failed (non-fatal if backfill already succeeded):', e.message);
+    console.warn('Live page fetch failed entirely (non-fatal if backfill already gathered data):', e.message);
   }
 
-  try {
-    const totoLive = parseTotoLive(liveText);
-    mergeEntry(history.toto, totoLive);
-  } catch (e) {
-    console.warn('Live TOTO parse failed:', e.message);
+  if (liveText) {
+    try {
+      const fourDLive = parseFourDLive(liveText);
+      mergeEntry(history.fourD, fourDLive);
+    } catch (e) {
+      console.warn('Live 4D parse failed (non-fatal if backfill already succeeded):', e.message);
+      // DIAGNOSTIC FIX: dump a chunk of the actually-fetched page text so a page-structure change is
+      // immediately visible in the logs, rather than needing a second round-trip just to see what
+      // check4d.co's HTML looks like now. This is the single most useful line for diagnosing "the
+      // scraper ran, no errors on the fetch itself, but couldn't find what it expected."
+      console.warn('DIAGNOSTIC - first 500 chars of fetched live page text:', liveText.slice(0, 500));
+    }
+
+    try {
+      const totoLive = parseTotoLive(liveText);
+      mergeEntry(history.toto, totoLive);
+    } catch (e) {
+      console.warn('Live TOTO parse failed:', e.message);
+    }
   }
 
   history.fourD = sortAndTrim(history.fourD);
   history.toto = sortAndTrim(history.toto);
 
   if (history.fourD.length === 0 && history.toto.length === 0) {
-    throw new Error('Sanity check failed: ended up with zero entries for both games - refusing to write an empty history.json');
+    throw new Error('Sanity check failed: ended up with zero entries for both games (backfill AND live fetch both produced nothing) - refusing to write an empty history.json. Check the warnings above for the specific fetch/parse failures.');
   }
 
   const output = {
