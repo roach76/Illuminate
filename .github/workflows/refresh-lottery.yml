@@ -1,1 +1,61 @@
+name: Refresh Lottery History
+
+# Runs the scraper on a schedule and commits history.json if it changed, so the
+# app's "Refresh" button can fetch a URL that's always reasonably current.
+#
+# SETUP (one-time, done by you - Claude cannot deploy/host this):
+#   1. Put this file at .github/workflows/refresh-lottery.yml in your repo
+#      (the "lottery-scraper" folder, including scraper.js, should sit at the
+#      repo root or wherever you point the `working-directory` below).
+#   2. Push to GitHub. That's it - no secrets or extra config needed for a
+#      public repo, since this only reads a public webpage and writes back to
+#      your own repo using the built-in GITHUB_TOKEN.
+#   3. The resulting history.json becomes readable at:
+#        https://raw.githubusercontent.com/<you>/<repo>/main/lottery-scraper/history.json
+#      That URL sends permissive CORS headers, so the app's browser-side
+#      fetch() can read it directly - no separate API server needed.
+#
+# SCHEDULE NOTE: Singapore Pools draws 4D on Wed/Sat/Sun and TOTO on Mon/Thu,
+# both around 6:30pm SGT (= 10:30am UTC). The cron below runs a few times after
+# each draw window to catch the update without hammering the source site.
+
+on:
+  schedule:
+    # 11:00, 13:00, 20:00 UTC daily (= 7pm, 9pm, 4am SGT) - covers the post-draw
+    # window with a little buffer for the mirror site to update, plus a morning
+    # catch-up run. Adjust freely; GitHub's cron scheduling can drift by a few
+    # minutes at busy times, which doesn't matter for this use case.
+    - cron: '0 11 * * *'
+    - cron: '0 13 * * *'
+    - cron: '0 20 * * *'
+  workflow_dispatch: {} # lets you trigger a manual run from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run scraper
+        working-directory: lottery-scraper
+        run: node scraper.js
+
+      - name: Commit history.json if changed
+        run: |
+          git config user.name "lottery-refresh-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- lottery-scraper/history.json; then
+            echo "No change in history.json - nothing to commit."
+          else
+            git add lottery-scraper/history.json
+            git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            git push
+          fi
 
