@@ -238,6 +238,30 @@ actually fall within the requested year before counting it as a real
 success, and gives up immediately once one year fails rather than trying
 seven more that are equally certain to fail the same way.
 
+## Two more fixes: browsing partial 4D results, and TOTO browsing not appearing
+
+**4D past draws showing "partial data"**: this is a real, honest data
+limitation from check4d.co's past-results table, which only ever exposes
+1st/2nd/3rd for historical dates (not the full 23-number breakdown). The
+scraper now makes a best-effort attempt to upgrade older dates to full
+detail by fetching each date's own page
+(`https://check4d.co/sgpools/past/YYYY-MM-DD/`) - **this URL pattern has not
+been confirmed to exist** (same caveat as the multi-year archive attempts
+elsewhere in this scraper), so it may simply not work. If it doesn't, dates
+correctly continue to show "partial data" rather than anything being
+fabricated. To keep each run's duration and request volume reasonable, only
+10 partial entries are attempted per run - with 3 scheduled runs a day, the
+existing backfill should fully attempt upgrading within a few days, and any
+genuinely unavailable dates will simply stay partial indefinitely, honestly.
+
+**TOTO's "Browse Past Draws" not appearing/working**: this was a real bug.
+The browser previously required at least 4 accumulated draws before showing
+anything at all - but TOTO has no backfill source (see "Reaching 1000+
+draws" above) and only gains one draw per scheduled run, so a freshly-set-up
+TOTO repository could sit at 1 draw for weeks, always showing a "not enough
+data" message instead of a working date picker. Fixed to show a functional
+(if minimal) browser as soon as there's at least 1 draw.
+
 ## Why this needs a repo + Action, and can't just be a "Refresh" button
 
 A button in the app runs JavaScript **in your browser**. Two separate walls

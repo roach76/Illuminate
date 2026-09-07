@@ -145,6 +145,28 @@ function parseFourDLive(text) {
   const winning = [onest[1], twond[1], threerd[1], ...special, ...consolation];
   return { isoDate, date: formatIsoDate(isoDate, dayAbbr), drawNo, winning, full: winning.length >= 23 };
 }
+// BUG FIX: this parser works on ANY page with the "Draw NNNN/YY Day YYYY-MM-DD ... 1st/2nd/3rd ...
+// Special ... Consolation ..." format - it isn't actually specific to the live page, just named after
+// its original use. Individual past-date pages (https://check4d.co/sgpools/past/YYYY-MM-DD/) are
+// presumed to share this same per-draw layout (unconfirmed - see fetchFullDetailForDate below), so
+// this same function is reused rather than duplicated for that case.
+const parseFourDFullBreakdown = parseFourDLive;
+
+// ENHANCEMENT (this round): the past-results TABLE only ever gives 1st/2nd/3rd for historical dates
+// (that's all it exposes), which is why browsing an older date previously showed "partial data" -
+// an honest reflection of a real data limitation, not a display bug. This function attempts to
+// upgrade specific historical dates to the FULL 23-number breakdown by fetching that date's own page,
+// on the (unverified, best-effort) assumption that check4d.co exposes one page per past date in the
+// same format as the live page. Returns null (not thrown) on any failure, so a bad guess at this URL
+// pattern degrades to "still partial" rather than breaking the run.
+async function fetchFullDetailForDate(isoDate) {
+  try {
+    const html = await fetchPage(`https://check4d.co/sgpools/past/${isoDate}/`);
+    return parseFourDFullBreakdown(htmlToText(html));
+  } catch (e) {
+    return null;
+  }
+}
 
 function parseTotoLive(text) {
   const totoSectionIdx = text.search(/Toto/i);
@@ -265,6 +287,28 @@ async function main() {
     } catch (e) {
       console.warn('Live TOTO parse failed:', e.message);
     }
+  }
+
+  // ENHANCEMENT (this round): gradually upgrade backfilled ("partial", 1st/2nd/3rd only) 4D entries
+  // to the full 23-number breakdown by fetching each date's own page. Capped per run (rather than
+  // attempting all of them at once) to keep run time and request volume reasonable - at this rate the
+  // existing ~37-entry backfill fully upgrades within a handful of scheduled runs (a few days), and
+  // new backfilled dates added later get the same treatment on subsequent runs. Every attempt is
+  // best-effort: a failure just leaves that entry as "partial" (honestly labelled), it never breaks
+  // the run.
+  const UPGRADE_BATCH_SIZE = 10;
+  const partialEntries = history.fourD.filter(e => !e.full).slice(0, UPGRADE_BATCH_SIZE);
+  if (partialEntries.length > 0) {
+    console.log(`Attempting to upgrade ${partialEntries.length} partial 4D entries to full breakdowns...`);
+    let upgradedCount = 0;
+    for (const entry of partialEntries) {
+      const full = await fetchFullDetailForDate(entry.isoDate);
+      if (full && full.full) {
+        mergeEntry(history.fourD, full);
+        upgradedCount++;
+      }
+    }
+    console.log(`Upgraded ${upgradedCount}/${partialEntries.length} partial entries to full this run (any remaining will be retried on future runs).`);
   }
 
   history.fourD = sortAndTrim(history.fourD);
