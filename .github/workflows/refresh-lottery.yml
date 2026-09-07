@@ -35,6 +35,17 @@ on:
     - cron: '0 22 * * *'
   workflow_dispatch: {} # lets you trigger a manual run from the Actions tab
 
+# BUG FIX: without this, two overlapping runs (e.g. a manual trigger fired while a scheduled run is
+# still in progress, or two manual triggers close together) can both check out the same starting
+# point, both scrape and write history.json, and then race to push - the second one to push always
+# gets rejected by git as a "fast-forward" failure, since the first one already moved the branch
+# forward underneath it. `concurrency` tells GitHub to queue overlapping runs of this workflow one
+# after another instead of letting them run in parallel, which prevents this race at the source
+# rather than just handling it after the fact.
+concurrency:
+  group: refresh-lottery
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -105,13 +116,54 @@ jobs:
           if git diff --cached --quiet -- lottery-scraper/history.json; then
             echo "No change in history.json content - nothing new to commit."
           else
+            # Save our freshly-scraped content before any reset below - `git reset --hard` rewrites
+            # the working tree too, which would otherwise wipe out the very file we're trying to commit.
+            cp lottery-scraper/history.json /tmp/fresh_history.json
+
             git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
-            echo "--- Attempting push ---"
-            if git push; then
-              echo "Push succeeded."
-            else
+            echo "--- Attempting push (with retry-on-race, in case another run pushed in the meantime) ---"
+            PUSH_OK=false
+            for attempt in 1 2 3; do
+              PUSH_OUTPUT=$(git push 2>&1)
               PUSH_EXIT=$?
-              echo "::error::git push FAILED (exit code $PUSH_EXIT). This is almost always the repository's Settings -> Actions -> General -> 'Workflow permissions' being set to read-only - see the comment block at the top of this file for the exact fix. It can also mean branch protection rules on this branch are blocking the bot's push."
-              exit $PUSH_EXIT
+              echo "$PUSH_OUTPUT"
+              if [ $PUSH_EXIT -eq 0 ]; then
+                echo "Push succeeded on attempt $attempt."
+                PUSH_OK=true
+                break
+              fi
+              # BUG FIX: a fast-forward rejection ("! [rejected] ... fetch first") means another run
+              # pushed a commit to this branch between our checkout and our push - it is NOT a
+              # permissions problem, and the old error message here incorrectly blamed "Workflow
+              # permissions" for this every time, which would send you chasing a setting that was
+              # never the issue. The `concurrency:` block added to this workflow should prevent this
+              # from happening in the first place by queuing overlapping runs, but if it still occurs
+              # (e.g. a run already mid-flight before this fix was deployed), resync to the latest
+              # remote state and re-apply our freshly-scraped data on top, rather than failing
+              # immediately. A plain rebase was deliberately avoided here: both the local and remote
+              # commits touch the exact same file (history.json), which a rebase would likely turn
+              # into a merge conflict needing manual resolution - something a scheduled bot obviously
+              # can't do. Resetting to the remote's latest state and re-committing our already-known
+              # data on top sidesteps that entirely.
+              if echo "$PUSH_OUTPUT" | grep -qi "rejected"; then
+                echo "Push rejected (attempt $attempt/3) - another run updated the branch first. Resyncing to the latest remote state and re-applying our data..."
+                git fetch origin
+                git reset --hard origin/main
+                cp /tmp/fresh_history.json lottery-scraper/history.json
+                git add -f lottery-scraper/history.json
+                if git diff --cached --quiet -- lottery-scraper/history.json; then
+                  echo "After resyncing, our data matches what's already on the remote (the other run committed the same content) - nothing left to do."
+                  PUSH_OK=true
+                  break
+                fi
+                git commit -m "Auto-refresh lottery results ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+              else
+                echo "::error::git push failed with an error that isn't a fast-forward rejection (see output above) - this looks like a genuine permissions or branch-protection problem. Check Settings -> Actions -> General -> 'Workflow permissions' is set to 'Read and write permissions', and check for any branch protection rules on 'main' that might block this bot's account."
+                exit $PUSH_EXIT
+              fi
+            done
+            if [ "$PUSH_OK" != "true" ]; then
+              echo "::error::git push still failed after 3 attempts, even after resyncing each time. This suggests runs are overlapping faster than they can be resolved - check the Actions tab for other runs of this workflow happening at the same time, and consider whether the concurrency: setting at the top of this file is actually in effect (it only applies once this updated file is the one GitHub is using)."
+              exit 1
             fi
           fi
