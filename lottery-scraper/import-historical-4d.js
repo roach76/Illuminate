@@ -124,23 +124,32 @@ async function main() {
 
   const history = loadHistory();
   const beforeCount = history.fourD.length;
-  let importedCount = 0, skippedBadDateCount = 0;
+
+  // ENHANCEMENT (this round): explicitly requested - draws without the full, genuine 23-number
+  // breakdown are now REMOVED rather than kept with a "partial" flag and a warning message. This
+  // applies both to new rows from this import AND to any already-imported entries left over from a
+  // previous run (before this exact-23-distinct check existed), so re-running this script also
+  // cleans up anything that shouldn't have been kept in the first place.
+  const beforeCleanupCount = history.fourD.length;
+  history.fourD = history.fourD.filter(e => e.full === true);
+  const removedExistingCount = beforeCleanupCount - history.fourD.length;
+
+  let importedCount = 0, skippedBadDateCount = 0, skippedIncompleteCount = 0;
 
   for (const { drawNumber, dateStr, numbers } of drawMap.values()) {
     // Source format is YYYY/MM/DD - convert to this app's YYYY-MM-DD isoDate convention.
     const m = dateStr.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
     if (!m) { skippedBadDateCount++; continue; }
     const isoDate = `${m[1]}-${m[2]}-${m[3]}`;
-    // HONESTY CHECK: don't assume every draw has all 23 numbers - reflect the actual count. The
-    // source data has some draws with FEWER than 23 entries (confirmed by spot-checking against the
-    // raw file - a real, systematic gap concentrated in the earliest years, 1986-1991, where 152 of
-    // 165 total partial draws are missing exactly 2 numbers each). It ALSO, less commonly, has draws
-    // with MORE than 23 entries due to a literal duplicate row in the source (confirmed directly: draw
-    // 425 on 1990-06-23 has the number 0104 listed twice in the raw CSV). A draw is only marked `full`
-    // if it has EXACTLY 23 numbers AND all 23 are distinct - either too few or a duplicate correctly
-    // fails this and gets flagged, rather than an over-count being silently treated as "complete".
+    // HONESTY CHECK, now enforced by exclusion rather than just a flag: a draw only gets kept if it
+    // has EXACTLY 23 numbers that are all distinct. The source data has three confirmed anomaly
+    // types - too few numbers (a real gap, mostly concentrated in 1986-1991), too many (a literal
+    // duplicate row in the source, e.g. draw 425 on 1990-06-23 has 0104 listed twice), and exactly 23
+    // but with an internal duplicate (meaning one genuine number is unknown, seen even in a 2026
+    // draw) - all three are excluded here rather than imported with a caveat.
     const isExactly23Distinct = numbers.length === 23 && new Set(numbers).size === 23;
-    const entry = { isoDate, date: formatIsoDate(isoDate), drawNo: drawNumber, winning: numbers, full: isExactly23Distinct };
+    if (!isExactly23Distinct) { skippedIncompleteCount++; continue; }
+    const entry = { isoDate, date: formatIsoDate(isoDate), drawNo: drawNumber, winning: numbers, full: true };
     mergeEntry(history.fourD, entry);
     importedCount++;
   }
@@ -156,12 +165,13 @@ async function main() {
   fs.writeFileSync(HISTORY_PATH, JSON.stringify(output, null, 2));
 
   console.log('');
-  console.log(`Import complete. history.json now has ${history.fourD.length} 4D draws (was ${beforeCount} before this import).`);
-  console.log(`  ${importedCount} draws processed from the source dataset.`);
-  console.log(`  ${history.fourD.filter(e => e.full).length} draws have the full 23-number breakdown.`);
+  console.log(`Import complete. history.json now has ${history.fourD.length} 4D draws (was ${beforeCount} before this import), ALL with the full, genuine 23-number breakdown.`);
+  console.log(`  ${importedCount} new draws imported from the source dataset.`);
+  console.log(`  ${skippedIncompleteCount} draws from the source dataset were excluded (missing numbers, extra/duplicate rows, or an internal duplicate).`);
+  if (removedExistingCount > 0) console.log(`  ${removedExistingCount} previously-imported incomplete draws were removed from the existing repository during this cleanup. Note: if any of these were recent dates that scraper.js's own backfill added (and was actively trying to upgrade to full detail on its own scheduled runs), removing them here just means scraper.js will need to re-add them on its next run rather than continuing to upgrade an entry already in place - a minor, temporary effect, not permanent data loss, as long as check4d.co's past-results page still covers that date by then.`);
   if (skippedBadDateCount > 0) console.log(`  ${skippedBadDateCount} rows skipped due to an unparseable date.`);
   const dates = history.fourD.map(e => e.isoDate).sort();
-  console.log(`  Date range: ${dates[0]} to ${dates[dates.length - 1]}`);
+  if (dates.length > 0) console.log(`  Date range: ${dates[0]} to ${dates[dates.length - 1]}`);
 }
 
 main().catch(err => {
