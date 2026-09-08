@@ -1,6 +1,6 @@
 {
-  "lastUpdated": "2026-09-08T05:49:00.926Z",
-  "source": "User-provided historical TOTO dataset (import-historical-toto.js) + https://check4d.co/sgpools/ (ongoing scraper.js updates)",
+  "lastUpdated": "2026-09-08T15:54:46.901Z",
+  "source": "https://check4d.co/sgpools/",
   "fourD": [
     {
       "isoDate": "2026-09-06",
@@ -32,6 +32,259 @@
         "9103"
       ],
       "full": true
+    },
+    {
+      "isoDate": "2026-09-05",
+      "date": "Sat 5 Sep 2026",
+      "drawNo": "5531/26",
+      "winning": [
+        "9248",
+        "2243",
+        "5264"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-09-02",
+      "date": "Wed 2 Sep 2026",
+      "drawNo": "5530/26",
+      "winning": [
+        "4125",
+        "8603",
+        "3798"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-30",
+      "date": "Sun 30 Aug 2026",
+      "drawNo": "5529/26",
+      "winning": [
+        "9238",
+        "8594",
+        "0379"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-29",
+      "date": "Sat 29 Aug 2026",
+      "drawNo": "5528/26",
+      "winning": [
+        "0363",
+        "4694",
+        "2691"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-26",
+      "date": "Wed 26 Aug 2026",
+      "drawNo": "5527/26",
+      "winning": [
+        "1564",
+        "2169",
+        "8947"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-23",
+      "date": "Sun 23 Aug 2026",
+      "drawNo": "5526/26",
+      "winning": [
+        "9675",
+        "0618",
+        "6753"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-22",
+      "date": "Sat 22 Aug 2026",
+      "drawNo": "5525/26",
+      "winning": [
+        "3001",
+        "4915",
+        "3711"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-19",
+      "date": "Wed 19 Aug 2026",
+      "drawNo": "5524/26",
+      "winning": [
+        "4478",
+        "1440",
+        "2761"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-16",
+      "date": "Sun 16 Aug 2026",
+      "drawNo": "5523/26",
+      "winning": [
+        "6149",
+        "9898",
+        "9521"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-15",
+      "date": "Sat 15 Aug 2026",
+      "drawNo": "5522/26",
+      "winning": [
+        "6714",
+        "5661",
+        "9919"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-12",
+      "date": "Wed 12 Aug 2026",
+      "drawNo": "5521/26",
+      "winning": [
+        "2375",
+        "2490",
+        "6546"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-09",
+      "date": "Sun 9 Aug 2026",
+      "drawNo": "5520/26",
+      "winning": [
+        "7137",
+        "7072",
+        "7256"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-08",
+      "date": "Sat 8 Aug 2026",
+      "drawNo": "5519/26",
+      "winning": [
+        "5102",
+        "1128",
+        "6050"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-05",
+      "date": "Wed 5 Aug 2026",
+      "drawNo": "5518/26",
+      "winning": [
+        "0715",
+        "0901",
+        "5730"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-02",
+      "date": "Sun 2 Aug 2026",
+      "drawNo": "5517/26",
+      "winning": [
+        "3052",
+        "7038",
+        "2268"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-08-01",
+      "date": "Sat 1 Aug 2026",
+      "drawNo": "5516/26",
+      "winning": [
+        "5964",
+        "0462",
+        "0631"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-29",
+      "date": "Wed 29 Jul 2026",
+      "drawNo": "5515/26",
+      "winning": [
+        "8813",
+        "1641",
+        "0173"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-26",
+      "date": "Sun 26 Jul 2026",
+      "drawNo": "5514/26",
+      "winning": [
+        "6431",
+        "2067",
+        "4836"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-25",
+      "date": "Sat 25 Jul 2026",
+      "drawNo": "5513/26",
+      "winning": [
+        "5131",
+        "4814",
+        "3970"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-22",
+      "date": "Wed 22 Jul 2026",
+      "drawNo": "5512/26",
+      "winning": [
+        "9662",
+        "3225",
+        "7544"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-19",
+      "date": "Sun 19 Jul 2026",
+      "drawNo": "5511/26",
+      "winning": [
+        "0647",
+        "3250",
+        "3008"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-18",
+      "date": "Sat 18 Jul 2026",
+      "drawNo": "5510/26",
+      "winning": [
+        "9418",
+        "2993",
+        "1965"
+      ],
+      "full": false
+    },
+    {
+      "isoDate": "2026-07-15",
+      "date": "Wed 15 Jul 2026",
+      "drawNo": "5509/26",
+      "winning": [
+        "4087",
+        "2897",
+        "7004"
+      ],
+      "full": false
     },
     {
       "isoDate": "2026-07-12",
