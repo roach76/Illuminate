@@ -1,0 +1,211 @@
+:root { --ink: #182030; --muted: #697386; --paper: #fbfaf7; --sand: #f1ede3; --line: #ded8cd; --gold: #b88635; --goldsoft: #f5e9ce; --plum: #5c345b; --deep: #20273b; --danger: #e0201f; --success: #2e7d32; --warning: #c9781f; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #e9e6df; color: var(--ink); font: 15px/1.5 Inter, system-ui, -apple-system, sans-serif; }
+button, input, select { font: inherit; }
+button:disabled { opacity: 0.5; cursor: not-allowed; background: var(--muted) !important; color: #fff !important; }
+
+.app { width: min(100%, 430px); min-height: 100vh; margin: auto; background: var(--paper); box-shadow: 0 0 36px #433b3326; position: relative; padding-top: 66px; }
+
+.top-bar { position: fixed; top: 0; left: 50%; transform: translateX(-50%); width: min(100%, 430px); z-index: 1000; background: var(--paper); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; padding: 15px 23px 10px; }
+
+.view { display: none; min-height: 100vh; padding: 15px 23px 90px; }
+.view.active { display: block; }
+.brand { display: flex; align-items: center; gap: 9px; color: var(--plum); font-size: 13px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.orb { width: 32px; height: 32px; border: 1px solid var(--gold); border-radius: 50%; display: grid; place-items: center; background: var(--paper); }
+.brand-logo { width: 20px; height: 20px; fill: var(--gold); }
+.primary, .secondary, .mini { cursor: pointer; border: 0; }
+.primary { width: 100%; border-radius: 12px; padding: 15px 18px; background: var(--deep); color: #fff; font-weight: 700; transition: transform 0.1s; }
+.primary:active:not(:disabled) { transform: scale(0.98); }
+.secondary { width: 100%; padding: 14px; background: transparent; color: var(--plum); font-weight: 700; }
+
+.field-row { display: flex; gap: 10px; align-items: flex-end; } .field-row .field { flex: 1; }
+.field { display: block; font-size: 13px; font-weight: 700; margin: 14px 0 6px; }
+.field input, .field select { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
+.checkbox-field { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; margin: 12px 0; cursor: pointer; }
+.checkbox-field input { width: auto; cursor: pointer; }
+.error { min-height: 20px; margin: 10px 0; color: var(--danger); font-size: 13px; }
+.note, .disclaimer { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.linkbtn { border: 0; background: transparent; color: var(--plum); font-weight: 700; padding: 0; cursor: pointer; }
+.top { display: flex; justify-content: space-between; align-items: center; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--plum); color: #fff; font-size: 13px; text-transform: uppercase; }
+.greeting { margin: 15px 0 16px; }
+.date { font-size: 13px; color: var(--muted); margin-top: 6px; }
+/* ENHANCEMENT (reported: "remove the 'Hello, XXX' and retain the day and date"): with the greeting h1
+   gone, #todayDate is now the landing page's sole heading here, so it takes on the heading's size and
+   weight instead of staying a small muted caption under a title that no longer exists. */
+.date.date-as-heading { font-size: 22px; font-weight: 700; color: var(--ink); margin-top: 0; line-height: 1.2; }
+
+.day { border-radius: 18px; padding: 20px; color: #fff; margin-bottom: 16px; cursor: pointer; transition: transform 0.1s;}
+.day:active { transform: scale(0.98); }
+.eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.day h2 { font: 500 26px Georgia, serif; margin: 8px 0; }
+.day p { margin: 0; color: #f7f1ea; font-size: 14px; }
+.headrow { display: flex; justify-content: space-between; align-items: center; margin: 22px 0 10px; }
+.headrow h2 { font-size: 15px; margin: 0; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mini { text-align: left; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--ink); cursor: pointer; }
+.symbol { font: 24px Georgia; color: var(--gold); }
+.mini strong, .mini span { display: block; }
+.mini strong { margin-top: 6px; font-size: 13px; }
+.mini span { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: min(100%, 430px); display: flex; background: #fffdf9; border-top: 1px solid var(--line); padding: 6px 2px; z-index: 1000; }
+/* BUG FIX (reported: nav labels overrun onto a second line when selected, and spacing looked
+   lopsided): with 8 nav items sharing a ~430px-wide bar, `justify-content: space-around` gave each
+   item padding proportional to its OWN content width rather than a consistent gap between items -
+   "Business Partner" (the longest label) visibly threw off the rhythm of the row. Switched every
+   button to `flex: 1` so all 8 take equal width and sit at consistent, even intervals regardless of
+   label length. Separately, the active state previously jumped to `font-weight: 800`, which measurably
+   widens text at the same font-size - on the already-tight long labels this was enough to push a word
+   onto a second line only when selected. Both states now share the same font-weight (700), with only
+   colour distinguishing the active tab, so a label's width - and therefore whether it wraps - no
+   longer changes when it's selected. The label itself still gets `white-space: nowrap` plus an
+   ellipsis as a safety net in case a translation or future label is still too long to fit. */
+.nav button { border: 0; background: none; color: var(--muted); font-size: 9.5px; font-weight: 700; display: grid; place-items: center; gap: 1px; cursor: pointer; flex: 1; min-width: 0; padding: 0 1px; }
+.nav button.active { color: var(--plum); }
+.nav button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.nav i { font-style: normal; font-size: 16px; }
+
+.detail { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.detail h1 { font-size: 26px; margin: 0; }
+.back { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--sand); cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 16px; }
+.chip, .pill { display: inline-block; padding: 4px 8px; border-radius: 99px; background: var(--goldsoft); color: #755326; font-size: 11px; font-weight:700; }
+
+.section-header { font: 500 22px Georgia, serif; border-bottom: 1px solid var(--line); margin: 35px 0 15px; padding-bottom: 6px; color: var(--plum); scroll-margin-top: 20px; }
+.reading { border-top: 1px solid var(--line); padding: 16px 0; scroll-margin-top: 20px; }
+.reading h3, .forecast h3 { font-size: 15px; margin: 4px 0; }
+.reading p, .forecast p { color: var(--muted); font-size: 13px; margin: 0; }
+.forecast { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 15px; margin: 12px 0; scroll-margin-top: 20px; }
+.meter { height: 5px; background: var(--sand); border-radius: 9px; overflow: hidden; margin: 10px 0; }
+.meter b { display: block; height: 100%; background: var(--gold); transition: width 0.4s ease; }
+.pillar-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
+.pillar-table th, .pillar-table td { border: 1px solid var(--line); padding: 7px; text-align: center; }
+.pillar-table th { background: var(--sand); color: var(--plum); font-weight: 700; }
+.calc-box { background: #f5f3ec; border-left: 3px solid var(--gold); padding: 10px 12px; margin: 10px 0; font-size: 12px; border-radius: 0 8px 8px 0; line-height: 1.6; }
+.toto-balls { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.toto-ball { width: 25px; height: 25px; border-radius: 50%; background: var(--plum); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 11px; }
+.toto-ball.hit { background: #2e7d32; box-shadow: 0 0 6px rgba(46, 125, 50, 0.6); border: 2px solid #a5d6a7; }
+.illus-box { width: 100%; height: 170px; margin: 10px 0; background: var(--sand); border-radius: 12px; display: grid; place-items: center; padding: 8px; }
+
+.qimen-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; height: auto; background: transparent; padding: 0; border-radius: 8px; margin: 15px 0; }
+.qimen-cell { background: #fff; border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--muted); border-radius: 6px; text-align: center; line-height: 1.3; transition: all 0.15s ease; min-height: 62px; padding: 6px 3px; overflow: hidden; word-break: break-word; }
+/* BUG 4/9 FIX: high-contrast, unmistakable active-palace highlight (gold fill + dark ink text + glow ring) */
+.qimen-cell.active-palace { background: var(--gold); color: #241a05; border: 2px solid var(--plum); font-weight: 800; box-shadow: 0 0 0 3px rgba(184,134,53,0.28), 0 2px 6px rgba(0,0,0,0.2); z-index: 1; position: relative; }
+
+/* BUG 17/18 FIX: QMDJ chart v2 - outer direction/trigram/zodiac ring wrapping a dense 3x3 inner grid,
+   matching the layout of the reference chart template (labels wrap the grid on all 4 sides). */
+.qimen-grid-v2 { display: grid; grid-template-columns: 44px repeat(3, 1fr) 44px; gap: 4px; width: 100%; margin: 15px 0; background: #dfe3ea; padding: 4px; border-radius: 10px; }
+.qimen-ring-label { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #445; line-height: 1.3; text-align: center; padding: 2px; }
+/* ENHANCEMENT (reported: "Why is the QMDJ chart simplified... full deep reading?") - Deity/Star/Door now
+   always show their full text (English + Chinese, no longer truncated to 2 words, which was silently
+   dropping the Chinese characters), plus a large centered Star glyph, matching the reference sample
+   chart's layout. Grown from 84px to 108px min-height to fit that without cramming - overflow stays
+   hidden as a safety net so an unusually long value still can't spill out and scramble the grid. */
+.qimen-cell-v2 { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 6px 5px; min-height: 108px; overflow: hidden; }
+
+/* BUG 1/9 FIX: shared, consistent typographic + color rules for labelled rows and pills across every module */
+.pill { letter-spacing: .01em; }
+.section-header { font-weight: 500; letter-spacing: .01em; }
+.reading .pill + .calc-box, .reading .pill + div { margin-top: 10px; }
+strong { color: inherit; }
+
+.prediction-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.prediction-item { background: #f5f3ec; padding: 5px 10px; border-radius: 6px; font-weight: bold; color: var(--plum); font-size: 12px; border-left: 2px solid var(--gold); }
+.prediction-item.direct-hit { background: #e8f5e9; color: #2e7d32; border-color: #2e7d32; }
+.prediction-item.box-hit { background: #fff3e0; color: #e65100; border-color: #ffb300; }
+
+.guidance { margin-top: 12px; padding-top: 10px; border-top: 1px solid #ffffff2b; font-size: 12px; }
+.guidance div { margin: 4px 0; }
+.forecast .guidance { border-color: var(--line); color: var(--muted); }
+.forecast .guidance strong { color: var(--plum); }
+.draw-card { border-bottom: 1px dashed var(--line); padding-bottom: 12px; margin-bottom: 12px; }
+.draw-card:last-child { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+.lunar-badge { display: inline-block; padding: 2px 8px; background: #e9c98b2e; border: 1px solid #e9c98b66; border-radius: 6px; color: #f2c98a; font-size: 12px; margin-top: 6px; }
+.hidden { display: none !important; }
+.file-upload-btn { background: var(--sand); border: 1px solid var(--line); padding: 8px 12px; border-radius: 8px; cursor: pointer; text-align: center; font-size: 12px; font-weight: bold; color: var(--plum); display: block; width: 100%; margin-top: 4px;}
+.file-upload-input { display: none; }
+.preview-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin-top: 8px; border: 2px solid var(--gold); display: none; }
+
+.hl-act-direct { background: #e8f5e9; color: #2e7d32; font-weight: bold; padding: 1px 4px; border-radius: 4px; box-shadow: 0 0 4px rgba(46,125,50,0.3); }
+.hl-act-box { background: #fff3e0; color: #e65100; font-weight: bold; padding: 1px 4px; border-radius: 4px; }
+/* ENHANCEMENT (this round): favourite-number highlighting - Purple for exact match, Blue for
+   permutation match (4D) / Additional-number match (TOTO). Distinct from the green/orange suggested-
+   number hit highlighting above so both systems remain visually separable. */
+.hl-fav-exact { background: #7b1fa2; color: #fff; font-weight: bold; padding: 1px 5px; border-radius: 4px; box-shadow: 0 0 4px rgba(123,31,162,0.4); }
+.hl-fav-perm { background: #1565c0; color: #fff; font-weight: bold; padding: 1px 5px; border-radius: 4px; box-shadow: 0 0 4px rgba(21,101,192,0.4); }
+
+/* ENHANCEMENT (this round): shared Deep Analysis modal - deep-analysis content is collapsed behind a
+   button (see renderStandardDeepAnalysis in app.js) and shown here on click, instead of always being
+   expanded inline. This is the primary page-length reduction mechanism. */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 2000; }
+.modal-overlay.hidden { display: none; }
+/* BUG FIX: was a bottom-sheet (align-items:flex-end, full width, flat bottom corners) - now an
+   absolutely-positioned popup anchored near the click that opened it, computed in JS (see
+   positionModalNearClick in app.js), clamped to stay fully on-screen regardless of where on the
+   page the triggering button was. */
+.modal-box { background: #fff; width: min(92vw, 380px); max-height: 75vh; overflow-y: auto; border-radius: 14px; position: absolute; padding-top: 8px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); animation: modalPopIn 0.15s ease-out; }
+@keyframes modalPopIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+/* BUG FIX: an anchored popup near the tap point doesn't work well on narrow phone screens - the box
+   is often close to the full screen width anyway (min(92vw,380px) leaves almost no room to manoeuvre
+   on a 320-390px-wide device), so it usually just gets clamped to a corner rather than genuinely
+   sitting near the tap. Below this breakpoint, the modal fills the entire screen instead - no
+   positioning needed, and a much more usable target on a small touchscreen. positionModalNearClick in
+   app.js checks the same breakpoint and skips its positioning math entirely in this case, since a
+   full-screen fixed box doesn't need a computed left/top. */
+@media (max-width: 480px) {
+  .modal-box { position: fixed; inset: 0; width: 100%; max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; animation: modalFadeIn 0.15s ease-out; }
+  @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+}
+.modal-close { position: sticky; top: 8px; float: right; margin-right: 10px; width: 32px; height: 32px; border-radius: 50%; border: none; background: var(--sand); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; z-index: 1; }
+
+/* ENHANCEMENT (this round): collapsible major sections, replacing the old always-expanded
+   `.section-header` h2 for everything except the profile overview / details summary at the top of
+   the chart. Custom-styled to match .section-header rather than using the browser's native
+   disclosure-triangle look, and the chevron rotates when open via the [open] attribute selector. */
+.section-details { border-bottom: 1px solid var(--line); margin: 20px 0; scroll-margin-top: 20px; }
+.section-details:first-of-type { margin-top: 10px; }
+.section-summary { font: 500 22px Georgia, serif; color: var(--plum); padding: 10px 0; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.section-summary::-webkit-details-marker { display: none; }
+.section-summary::marker { content: ''; }
+.section-chevron { font-size: 16px; color: var(--gold); transition: transform 0.2s ease; flex-shrink: 0; margin-left: 10px; }
+.section-details[open] .section-chevron { transform: rotate(90deg); }
+.section-details-body { padding-bottom: 10px; }
+
+/* ENHANCEMENT (this round): "summary first, full detail behind a toggle" pattern for individual
+   heavy systems (e.g. the QMDJ 9-palace grid) - a smaller, nested version of the section-level
+   collapsible above, styled as a button rather than a full section header. */
+.subsection-toggle { margin-top: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 4px 10px; }
+.subsection-toggle-summary { list-style: none; cursor: pointer; padding: 8px 2px; font-size: 12px; font-weight: 700; color: var(--plum); display: flex; justify-content: space-between; align-items: center; }
+.subsection-toggle-summary::-webkit-details-marker { display: none; }
+.subsection-toggle-summary::marker { content: ''; }
+.subsection-toggle[open] .section-chevron { transform: rotate(90deg); }
+.subsection-toggle-body { padding: 6px 0 10px; }
+
+/* ENHANCEMENT (this round): chart tab bar (Core/Timing/Environment/More) - splits what used to be
+   one long scroll into 4 shorter ones, with only the active tab's content ever in the DOM. */
+.chart-tab-bar { display: flex; gap: 4px; margin: 16px 0 4px; background: var(--sand); border-radius: 10px; padding: 3px; position: sticky; top: 62px; z-index: 10; }
+.chartTabBtn { flex: 1; padding: 9px 4px; border: none; background: transparent; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; transition: all 0.15s ease; }
+.chartTabBtn.active { background: #fff; color: var(--plum); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+.chart-tab-panel { min-height: 200px; }
+
+/* REMOVED (reported: "The what's new should be removed from the landing page. Document in the notes
+   and instructions instead"): the .whatsnew-banner rules and the banner markup/logic are gone; each
+   round's headline changes now only live in UPDATE_NOTES_AND_INSTRUCTIONS.md. */
+
+/* ENHANCEMENT (this round, suggested: "consistent iconography for 'requires input before this
+   section shows anything'"): a small, consistent badge next to a pill/section label whose real
+   content only renders once specific fields are filled in - a single visual marker instead of each
+   section writing its own ad-hoc prose explanation. */
+.needs-input-badge { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 8px; background: var(--warning); color: #fff; font-size: 9px; font-weight: 700; letter-spacing: 0.02em; vertical-align: middle; }
+
+/* ENHANCEMENT (this round, suggested: "a visible 'last calculated on <date>' timestamp on any
+   reading that depends on the current date"). */
+.calculated-as-of { font-size: 10px; color: var(--muted); margin: 2px 0 8px; font-style: italic; }
+
+/* ENHANCEMENT (this round, suggested: "a single account-wide 'export readiness' checklist"). */
+.export-readiness { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 14px; }
+.export-readiness-title { font-size: 12px; font-weight: 700; color: var(--plum); margin-bottom: 6px; }
+.export-readiness-item { font-size: 11px; color: var(--muted); padding: 3px 0; }
+.export-readiness-item.missing { color: var(--warning); }
+.export-readiness-allset { font-size: 11px; color: var(--success); font-weight: 700; }

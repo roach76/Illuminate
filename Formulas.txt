@@ -1,0 +1,400 @@
+60 Jia Zi
+=========
+The 60 Jiazi (Sexagenary) cycle is calculated by pairing the 10 Heavenly Stems with the 12 Earthly Branches in a sequential, parallel loop. Because both lists advance by one step every time, and both stems and branches must always share the same Yin/Yang polarity, the cycle produces exactly 60 unique combinations before resetting.  Here is the exact formula, structure, and programming logic used to calculate them.
+
+1. The Core Components & Polarities
+    Every element in both sequences has an assigned mathematical index (1 to 12) and a fixed Yin or Yang polarity.
+        Index   10 Heavenly Stems (S)   Polarity    12 Earthly Branches (B)   Polarity    Zodiac Animal
+        1       甲 (Jiǎ) - Yang Wood     Yang        子 (Zǐ) - Water            Yang       Rat
+        2       乙 (Yǐ) - Yin Wood       Yin         丑 (Chǒu) - Earth          Yin        Ox
+        3       丙 (Bǐng) - Yang Fire    Yang        寅 (Yín) - Wood            Yang       Tiger
+        4       丁 (Dīng) - Yin Fire     Yin         卯 (Mǎo) - Wood            Yin        Rabbit
+        5       戊 (Wù) - Yang Earth     Yang        辰 (Chén) - Earth          Yang       Dragon
+        6       己 (Jǐ) - Yin Earth      Yin         巳 (Sì) - Fire             Yin        Snake
+        7       庚 (Gēng) - Yang Metal   Yang        午 (Wǔ) - Fire             Yang       Horse
+        8       辛 (Xīn) - Yin Metal     Yin         未 (Wèi) - Earth           Yin        Goat
+        9       壬 (Rén) - Yang Water    Yang        申 (Shēn) - Metal          Yang       Monkey
+        10      癸 (Guǐ) - Yin Water     Yin         酉 (Yǒu) - Metal           Yin        Rooster
+        11      —                        —           戌 (Xū) - Earth            Yang       Dog
+        12      —                        —           亥 (Hài) - Water           Yin        Pig
+
+2. The Mathematical Sequence Formula
+    To determine which specific combination represents any sequence number (N) from 1 to 60, use the modulo (remainder) formula:
+        Stem Index (S)    =    ((N-1)(mod10))+1
+        Branch Index (B)  =    ((N-1)(mod12))+1
+
+        Example Calculation: Find the 11th Element (N = 11)
+            Find Stem (S)   :   (((11 - 1) (mod{10}) + 1 = (10 (mod(10)) + 1 = 0 + 1 = 1 (甲 - Jiǎ)
+            Find Branch (B) :   (((11 - 1) (mod{12}) + 1 = (10 (mod(12)) + 1 = 10 + 1 = 11 (戌 - Xū)
+        Result: The 11th pillar is 甲戌 (Jiǎ Xū) / Wood Dog.
+
+3. How the 60 Combinations are Generated
+    Because 10 and 12 are both even numbers, their Least Common Multiple (LCM) is 60. This mathematical property ensures that Yang Stems only ever pair with Yang Branches, and Yin Stems only ever pair with Yin Branches. You will never see a combination like 甲丑 (Yang Wood + Yin Ox).
+
+        The generation cycles through like gears:
+            Pillar 1: Stem 1 + Branch 1 = 甲子 (Jiǎ Zǐ)
+            Pillar 2: Stem 2 + Branch 2 = 乙丑 (Yǐ Chǒu)
+            ...
+            Pillar 10: Stem 10 + Branch 10 = 癸酉 (Guǐ Yǒu)
+            Pillar 11: Stem 1 + Branch 11 = 甲戌 (Jiǎ Xū) (Stems loop back to 1)
+            Pillar 12: Stem 2 + Branch 12 = 乙亥 (Yǐ Hài)
+            Pillar 13: Stem 3 + Branch 1 = 丙子 (Bǐng Zǐ) (Branches loop back to 1)
+            ...
+            Pillar 60: Stem 10 + Branch 12 = 癸亥 (Guǐ Hài) (Both loop finish simultaneously)
+
+4. How to Calculate the Elements from a Gregorian Year
+    If you want to find the 60 JiaZi pillar for a specific calendar year (e.g., your birth year 1976), use this formula adjusted for the historical calendar anchor:
+        Stem Index     =    ((Year-3)(mod10))
+        Branch Index   =    ((Year-3)(mod12))
+    (If the result is 0, it means it is the last index: Stem 10 or Branch 12).
+
+    Sample Calculation for 1976:
+        Stem: (1976 - 3) (mod 10) = 1973 (mod 10) = 3 (Index 3 = 丙 - Bǐng)
+        Branch: (1976 - 3) (mod 12) = 1973 (mod 12) = 5 (Index 5 = 辰 - Chén)
+    Result: 1976 is the year of 丙辰 (Bǐng Chén) / Fire Dragon.
+
+Da Yun
+======
+The universal formula to calculate the exact starting age of a BaZi 10-year luck cycle relies on converting the time gap (G) between the birth moment and the solar term node into years, months, and days using the 3-day time-scaling ratio.
+
+1. The Core Conversion Metrics
+The traditional formula maps solar calendar movements to human life spans using these precise mathematical ratios:
+    3 Days of Time Gap (G)   = 1 Year of Life (360 days)
+    1 Day of Time Gap (G)    = 4 Months of Life (120 days)
+    1 Hour of Time Gap (G)   = 5 Days of Life
+    1 Minute of Time Gap (G) = 2 Hours of Life
+
+2. The Step-by-Step Formula
+    Step A: Calculate Total Time Gap in Hours (Ghours)
+        Find the absolute difference in time between the birth time and the target solar term node:
+            Ghours = Total Hours + (Total Minutes/60)
+
+    Step B: Convert Time Gap to "Life Days" Dlife
+        Multiply the total hours by 5 to find how many standard days of life the gap represents:
+            Dlife = Ghours x 5
+
+    Step C: Breakdown into Years, Months, and Days
+        To translate Dlife into a human age format (Years, Months, Days)
+            - Years: [Dlife / 360]
+            - Remaining Days: R = Dlife (mod360)
+            - Months: [R / 30]
+            - Days: R (mod30)
+        Note: [...] means round down to the nearest whole integer).
+
+3. Application to Your Chart (Example with 7 September 1976, 09:33am, Singapore, Male)
+    Your exact time gap until Bailu was 10 hours and 55 minutes
+    Step A: 
+        Calculate Ghours: 10 + (55/60) = 10.916 hours
+
+    Step B: 
+        Calculate Dlife: 10.9167 x 5 = 54.58 days of life
+
+    Step c:
+        Convert to Age:
+            - Years: [54.58/360] = 0 Years
+            - Remaining Days (R): 54.58 (mod360) = 54.58 days
+            - Months: [54.58 (mod30) = 1 Month
+            - Days: 54.58 (mod30) = 24.58 ~ 25 Days
+
+    Your exact BaZi starting age is 0 Years, 1 Month, and 25 Days from birth. Adding this duration directly to your birth date (7 September 1976) brings your transition day to 2 October 1976, repeating on that approximate date every 10 years.
+
+Example calculation as follows:
+ Based on the Gregorian birth details Male, 7 September 1976 09:33am, Singapore, 
+ I. The True Solar Time (TST) Calculation
+     - Historical Clock Offset: In September 1976, Singapore observed Malayan Standard Time, which was GMT +7:30 (not today's GMT +8:00).
+	 - Geographic Longitude: Singapore is located at 103° 51' E. Each degree of longitude represents 4 minutes of time relative to the Prime Meridian.
+	 - Local Mean Time Deviation: The physical location meridian is 103.85° × 4 = 415.4 minutes ahead of GMT, which converts to GMT +6:55:24.
+	 - Standard Clock to Solar Deficit: The gap between the 1976 clock time (GMT +7:30) and actual geographic solar position (GMT +6:55:24) creates a strict deficit of -34 minutes and 36 seconds.
+	 - Equation of Time (EoT): On September 7, the eccentricity of Earth's orbit adds +2 minutes and 13 seconds.
+	      True Solar Time = 09:33:00 AM - 34m 36s + 2m 13s = 09:00:37 AM
+	This places the astronomical birth moment precisely within the opening minute of the Si (巳) Hour (09:00 AM – 11:00 AM) bracket.
+ II. Authentic Ba Zi Configuration & Solar Node Alignment
+    - On 7 September 1976, the major solar term transition into Bai Lu (白露 - White Dew) occurred at exactly 09:35 AM (Standard Clock Time).
+	- Because your true solar birth time corresponds to roughly 09:33 AM Standard Clock Time, your birth occurred exactly 2 minutes prior to the Bai Lu node entry. This means you were born in the final micro-moment of the Shen (申) Month cycle.
+	    - Year Pillar: Bing Chen (丙辰) — Yang Fire Dragon
+		- Month Pillar: Bing Shen (丙申) — Yang Fire Monkey
+		- Day Pillar: Ren Xu (壬戌) — Yang Water Dog
+		- Hour Pillar: Ding Si (丁巳) — Yin Fire Snake
+	- Your true Day Master is Ren (壬) Yang Water, representing your core self.
+ III. Verified 10-Year Major Luck Pillar Timeline
+    - Because you are a Yang Male (born in a Bing Yang Fire year), your major luck pillars must progress forward through the Sexagenary cycle starting from your birth month pillar, Bing Shen (丙申).
+	- The exact calculation measuring the fractional time remaining from your birth (09:33 AM Clock Time) to the exact entry of the Bai Lu solar term (09:35 AM Clock Time) yields a gap of only 2 minutes. Under Ba Zi calculation rules, this distance rounds down to 0 Years, 0 Months, and 0 Days. Your major luck cycles activate seamlessly at Age 0 and transition precisely on years ending in 6 near your birthday:
+	    - Active Period    Age Range    Major Luck Pillar (Stem & Branch)    Operational Cycle
+		  1976 – 1986      0 – 10       Ding You (丁酉)                       Fire Rooster (Childhood)
+		  1986 – 1996      10 – 20      Wu戌 (Wu Xu)                          Earth Dog
+		  1996 – 2006      20 – 30      Ji亥 (Ji Hai)                         Earth Pig
+		  2006 – 2016      30 – 40      Geng子 (Geng Zi)                      Metal Rat
+		  2016 – 2026      40 – 50      Xin丑 (Xin Chou)                      Current Cycle (Ending Now)
+		  2026 – 2036      50 – 60      Ren寅 (Ren Yin)                       Upcoming Cycle (Begins Sept 2026)
+
+Chinese bone weight (称骨算命, Chéng Gǔ Suàn Mìng)
+=================================================
+Follow below Calculation method
+    1. Convert Your Solar Birthday to Lunar Date and Time
+        You must look up your western (solar) birth details in a Chinese Almanac (Tong Sheng) to find 
+            - Your Lunar Year (represented by its Sexagenary Stem-Branch cycle, e.g., Jia Zi).
+            - Your Lunar Month (1st to 12th month).
+            - Your Lunar Day (1st to 30th day).
+            - Your Chinese Birth Hour (the 24-hour day is divided into twelve 2-hour blocks called Shi Chen).
+        Note: If you were born between 11:00 PM and midnight, it counts as the "Zi" period of the following lunar day.
+
+    2. Cross-Reference the 4 Astrological Weights
+        Each of your four birth components corresponds to a specific weight in Liang and Qian. 
+        You can refer to complete historical matrices on the Your Chinese Astrology Reference Chart to find your numbers.
+        Below is an abbreviated example of how weights are assigned:
+            - Lunar Year Example: Jia Zi (e.g., 1984) = 1.2 Liang
+            - Lunar Month Example: 8th Month = 1.5 Liang
+            - Lunar Day Example: 20th Day = 1.5 Liang
+            - Birth Hour Example: Si Hour (9:00 AM – 11:00 AM) = 0.9 Liang
+
+    3.Add the Weights Together
+        Sum your four weights to get your total cosmic bone weight.
+        Total Weight = Year Weight+ Month Weight + Day Weight + Hour Weight
+            Using the example figures above:
+                1.2 + 1.5 + 1.5 + 0.9 = 5 Liang 1 Qian
+
+    4. Once you have your total score, you cross-reference it against the historical "Song of Weighing Bones" (称骨歌), which assigns a specific prophetic poem to each decimal score from 2.1 to 7.2. 
+        While the numerical math is identical for everyone, the traditional interpretation of the poems can vary slightly based on gender:
+            - Male Destiny Charts: Focus heavily on career achievements, ancestral wealth, societal status, and business prosperity.
+            - Female Destiny Charts: Focus traditionally on family harmony, marriage luck, household resilience, and personal longevity.
+
+The Da Yun Starting Age Formula
+Step 1 — Determine Your Direction (Forward or Reverse)
+The direction of your Da Yun sequence depends on two combined factors:
+
+Birth Year Polarity	Gender	Direction
+Yang year (甲丙戊庚壬)	Male	Forward (顺行)
+Yang year (甲丙戊庚壬)	Female	Reverse (逆行)
+Yin year (乙丁己辛癸)	Male	Reverse (逆行)
+Yin year (乙丁己辛癸)	Female	Forward (顺行)
+Forward means you count forward in time to the next solar term after your birth date.
+
+Reverse means you count backward in time to the previous solar term before your birth date.
+
+Step 2 — Find the Nearest Solar Term Boundary
+The Chinese solar calendar divides the year into 24 solar terms (节气). For Da Yun calculation, only the 12 major solar terms (节) are used — not the mid-terms (中气). These include Li Chun (立春), Jing Zhe (惊蛰), Qing Ming (清明), Li Xia (立夏), Mang Zhong (芒种), Xiao Shu (小暑), Li Qiu (立秋), Bai Lu (白露), Han Lu (寒露), Li Dong (立冬), Da Xue (大雪), and Xiao Han (小寒).
+
+Forward direction: Count the number of days from your birth date to the next solar term node.
+Reverse direction: Count the number of days from the previous solar term node back to your birth date.
+Step 3 — Apply the Conversion Formula
+The core formula is:
+
+> 3 days = 1 year of Da Yun starting age
+
+Divide the total days counted by 3:
+
+The whole number gives full years.
+The remainder (days left over) converts as follows: 1 day = 4 months, so 1 remaining day ≈ 4 months, 2 remaining days ≈ 8 months.
+Example:
+
+You count 19 days to the next solar term.
+19 ÷ 3 = 6 remainder 1
+Starting age = 6 years and 4 months
+This means your first Da Yun activates when you are approximately 6 years and 4 months old.
+
+Step 4 — Calculate All Subsequent Luck Pillars
+Once you have the starting age, simply add 10 years for each subsequent Luck Pillar:
+
+Luck Pillar	Activation Age
+1st Da Yun	Starting age (e.g., 6)
+2nd Da Yun	Starting age + 10 (e.g., 16)
+3rd Da Yun	Starting age + 20 (e.g., 26)
+4th Da Yun	Starting age + 30 (e.g., 36)
+5th Da Yun	Starting age + 40 (e.g., 46)
+Worked Example: Full Calculation
+Let's calculate the Da Yun starting age for a male born on March 5, 2000 (Yang year — 庚辰, Geng Chen).
+
+Step 1 — Direction:
+
+Birth year 2000 = 庚 (Geng) = Yang year
+Male + Yang year = Forward direction
+Step 2 — Find next solar term:
+
+March 5, 2000 → the next major solar term is Jing Zhe (惊蛰) on March 20, 2000
+Days from March 5 to March 20 = 15 days
+Step 3 — Convert:
+
+15 ÷ 3 = 5, remainder 0
+Starting age = 5 years old (exactly)
+Step 4 — Luck Pillar schedule:
+
+5, 15, 25, 35, 45, 55, 65, 75...
+
+Why the Formula Uses 3 Days = 1 Year
+This ratio comes from ancient Chinese metaphysics. One complete solar year spans approximately 365 days. A human life is traditionally considered to span about 120 years (the maximum celestial lifespan). The solar cycle between two solar term nodes (about 15 days) maps to 5 years of human experience. More practically, the Bazi masters observed that the period between birth and the nearest solar term — which carries the energy of the month pillar's transition — corresponds to roughly one year of lived experience for every three days of calendar distance.
+
+To understand how these same solar term boundaries define your month pillar in the first place, see our guide to bazi month pillar determination.
+
+This is why the formula is consistent regardless of which solar term is involved: the relationship between solar rhythm and human life cycles holds across the entire system.
+
+Common Calculation Mistakes
+Counting to the Wrong Solar Term
+Many beginners use the mid-term markers (中气) instead of the major nodes (节). The Da Yun formula uses only the 节 markers, not the 中气. Using the wrong boundary will throw off your starting age by several months or more.
+
+Confusing Forward and Reverse
+The most frequent error is applying the wrong direction. A female born in a Yang year uses forward direction — she counts to the next solar term, not the previous one. Double-check your birth year's Heavenly Stem polarity before determining direction.
+
+Using Lunar Calendar Dates
+The solar term boundaries are based on the solar calendar (公历), not the lunar calendar. Always use the Gregorian calendar date to count days to the solar term node. The solar term dates themselves are fixed in the solar calendar within a one or two day variation each year.
+
+Rounding Instead of Using Remainder
+Some practitioners round 19 days to "6 years" and ignore the fractional months. The correct approach preserves the remainder: 19 days = 6 years and 4 months. This precision matters when interpreting transitions between Luck Pillars.
+
+Reverse Direction: Counting Backward
+When the direction is reverse (逆行), you count backward from your birth date to the previous major solar term. The formula is the same: days ÷ 3, with the remainder converting to months.
+
+Example — Reverse direction:
+
+Female born July 8, 1995 (Yin year — 乙亥, Yi Hai)
+Yin year + Female = Forward ✗ — wait, let's re-check: Yin year + Female = Forward ✓
+Actually this example should be: Male born July 8, 1995 (Yin year)
+Yin year + Male = Reverse direction
+Count backward from July 8 to previous solar term: Xiao Shu (小暑) was July 7, 1995
+Days = 1 day
+1 ÷ 3 = 0 remainder 1 → 4 months
+Starting age = 4 months old (unusually young — this person's first Da Yun begins almost immediately)
+This illustrates why birth timing matters so much in Bazi: being born one day before or after a solar term can dramatically shift the entire Luck Pillar timeline.
+
+Using the Bazi Fortune Calculator
+Calculating Da Yun starting age manually requires accurate solar term dates for the specific birth year, which vary slightly from year to year. The Bazi Calculator on Bazi Fortune performs this calculation automatically — it determines direction, finds the precise solar term boundary for your birth year, applies the 3-day conversion, and displays your complete Luck Pillar schedule with activation ages.
+
+You can see your full Da Yun timeline alongside the stems and branches of each pillar, helping you understand not just when each cycle begins but what elemental energy it brings to your chart.
+
+Interpreting Your Da Yun in Context
+Knowing your starting age is just the first step. To fully interpret a Luck Pillar, you need to understand:
+
+The stem and branch of the pillar — each Da Yun has a Heavenly Stem and Earthly Branch that introduce specific elemental interactions with your natal chart.
+Favorable vs. unfavorable elements — whether the Da Yun element supports or clashes with your Day Master determines whether the cycle is broadly fortunate or challenging.
+Annual pillars (流年) — each year within a Da Yun has its own annual energy that modifies the ten-year cycle's influence in finer detail.
+For a complete guide to interpreting the ten-year cycles themselves, see our Luck Pillars and 10-Year Cycles guide.
+
+Key Takeaways
+Da Yun starting age is calculated by counting days to the nearest major solar term node, then dividing by 3 (3 days = 1 year, 1 remaining day = 4 months).
+Direction (forward or reverse) is determined by combining birth year polarity (Yang/Yin) with gender.
+All subsequent Luck Pillars follow in 10-year increments from the starting age.
+Use the solar (Gregorian) calendar for day counting — not the lunar calendar.
+The Bazi Fortune Calculator automates this calculation and displays your full Da Yun timeline.
+
+
+
+
+Qi Men Dun Jia
+==============
+Step 1: Convert Birth Data into Four Pillars
+ - Translate your exact year, month, day, and hour of birth into the Chinese lunar calendar.
+ - Identify the Heavenly Stem and Earthly Branch for each of the four pillars (Year, Month, Day, Hour).
+Step 2: Determine the Solar Term and Dun Type
+ - Find the current Solar Term (24 Jie Qi) active at the time of your birth.
+ - Determine whether the chart uses Yang Dun (Positive Destiny) or Yin Dun (Negative Destiny). Generally, the period from Winter Solstice to Summer Solstice uses Yang Dun, and Summer Solstice to Winter Solstice uses Yin Dun.
+Step 3: Find the Bureau Number (Ju Shu)
+ - Refer to the traditional QMDJ calendar or reference table corresponding to your solar term and the three-day cycle (shang yuan, zhong yuan, xia yuan) to find your Bureau Number (1 through 9).
+Step 4: Cast the Earth Plate and Heaven Plate
+ - Earth Plate (Di Pan): Place the Three Wonders (Yi, Bing, Ding) and Six Instruments (Wu, Ji, Geng, Xin Ren, Gui) into the Nine Palaces based on the Bureau number and whether it is Yin or Yang Dun (moving forward or backward through the Lo Shu numbers).
+ - Heaven Plate (Tian Pan): Identify the Lead Star (Zhi Fu) and Lead Door (Zhi Shi) based on the hour stem of birth, then rotate them to match the corresponding palace of the current hour.
+Step 5: Locate Your Natal Life Palace (Ming Gong)
+ - In QMDJ Destiny readings, your core natal palace or specific focus areas (like the Wealth or Life palace) are determined by mapping specific anchor symbols—such as the Life Door (Sheng Men) for general destiny/wealth orientation—onto your plotted grid.
+ 
+ Example calculation as follows:
+ Based on the Gregorian birth details Male, 7 September 1976 09:33am, Singapore, your profile has been processed according to the standard solar terms and the sexagenary cycle rules for Singapore (Singapore).
+ Your Qi Men Dun Jia Natal Palace is the Xun (巽) Palace, which represents the Southeast direction.
+ Below is the step-by-step breakdown of how this configuration is derived.
+ Step 1. Identify Your Ba Zi (Four Pillars) & Day Master
+  Before mapping the Qi Men chart, your solar birth information is converted into its Chinese metaphysical stems and branches:
+      - Year Pillar: Bing Chen (丙辰) — Fire Dragon
+	  - Month Pillar: Ding You (丁酉) — Fire Rooster
+	  - Day Pillar: Ren Xu (壬戌) — Water Dog
+	  - Hour Pillar: Yi Si (乙巳) — Wood Snake (derived from 09:33 AM, which sits in the 09:00–11:00 AM Snake hour window)
+  Your Day Master is Ren (壬) (Yang Water), located on the Heavenly Stem of your birth day. This is the indicator used to track your Natal Palace.
+ Step 2. Determine the Qi Men Chart Structure (Ju)
+  The chart relies on the solar term and the day cycle relative to your birth on 7 September 1976:
+      - Solar Term: This date falls precisely within the Chu Shu (处暑 - End of Heat) solar term window.
+	  - Cycle: Based on the Ren Xu day index, the chart follows the Yin Dun / Yin Ju 1 (阴遁一局) configuration.
+ Step 3. Trace the Day Master to the Natal Palace
+  When plotting the 3x3 layout for a Yin Ju 1 chart combined with an Yi Si (乙巳) hour pillar, the symbols distribute across the Nine Palaces.
+  Tracking your Day Master stem Ren (壬) onto the Heavenly Plate (the layer representing your environmental potential and mind) places it into the Xun (巽) Palace in the Southeast.
+ Step 4. Your Destiny Blueprint: Xun Palace (Southeast)
+  The Xun Palace is fundamentally associated with the Wood Element and represents gentleness, flexibility, progress, and persistent growth (like wind or creeping vines). Because your Day Master sits here, the energetic configuration of this palace governs your destiny blueprint:
+      - The Deity (Spirit) — Jiu Tian (九天 - Nine Heavens): This brings an ambitious, vision-oriented mindset. You likely have high ideals, a love for freedom, and strong creative foresight.
+	  - The Star (Mind) — Tian Fu (天辅 - Assistant Star): Known as the cultural and academic star, this grants you an innate talent for learning, mentoring, strategic thinking, and elegance in communication.
+	  - The Door (Action) — Du Men (杜门 - Delusion/Hidden Door): This indicates a reserved, analytical, or private approach to execution. You are highly capable of handling confidential information, technical research, or strategic operations away from public scrutiny.
+	  - The Stems Combination — Ren over Bing (壬加丙 - Water over Fire): In Qi Men, this dynamic is known as "Water Entering the Fire Market." It causes a highly dynamic, fast-shifting energy where major structural changes, travel, or intense creative shifts bring about your life breakthrough points.
+
+Example Summary
+ Qi Men Dun Jia Natal Palace DiagramFor a Ren Xu (壬戌) day and a Ding Si (丁巳) hour during the late Chu Shu solar term, the chart plots under the Yin Dun / Yin Ju 1 (阴遁一局) structural layout.Tracking your true Day Master Ren (壬) onto the outer Heavenly Plate layer of the 3x3 grid places your Natal Destiny Palace in the Xun (巽) Palace (Southeast).
+ +------------------------+------------------------+------------------------+
+ |       XUN (SE)         |        LI (S)          |       KUN (SW)         |
+ |  Deity: Jiu Tian (九天)|  Deity: Jiu Di (九地)  |  Deity: Zhu Que (朱雀) |
+ |  Star:  Tian Fu (天辅) |  Star:  Tian Ying(天英)|  Star:  Tian Rui (天芮)|
+ |  Door:  Du Men (杜门)  |  Door:  Jing Men(景门) |  Door:  Si Men (死门)  |
+ |  Heav:  Ren (壬) <---DM|  Heav:  Yi (乙)        |  Heav:  Ding (丁)      |
+ |  Earth: Bing (丙)      |  Earth: Geng (庚)      |  Earth: Wu (戊)        |
+ +------------------------+------------------------+------------------------+ 
+
+ |       ZHEN (E)         |        ZHONG (C)       |       DUI (W)          |  
+ |  Deity: Zhi Fu (值符)  |                        |  Deity: Liu He (六合)  |
+ |  Star:  Tian Chong(天冲)|                        |  Star:  Tian Zhu (天柱)|
+ |  Door:  Shang Men(伤门)|   (Hidden / Anchor)    |  Door:  Jing Men(惊门) |
+ |  Heav:  Wu (戊)        |                        |  Heav:  Ji (己)        |
+ |  Earth: Ding (丁)      |                        |  Earth: Ren (壬)       |
+ +------------------------+------------------------+------------------------+
+
+ |       GEN (NE)         |        KAN (N)         |       QIAN (NW)        |
+ |  Deity: Teng She (蛇)  |  Deity: Tai Yin (太阴) |  Deity: Xuan Wu (玄武) |
+ |  Star:  Tian Ren (天任)|  Star:  Tian Peng(天蓬)|  Star:  Tian Xin (天心)|
+ |  Door:  Sheng Men(生门)|  Door:  Xiu Men (休门) |  Door:  Kai Men (开门) |
+ |  Heav:  Geng (庚)      |  Heav:  Xin (辛)       |  Heav:  Gui (癸)       |
+ |  Earth: Ji (己)        |  Earth: Gui (癸)       |  Earth: Xin (辛)       |
+ +------------------------+------------------------+------------------------+
+九宫八卦图 (9 Palaces 8 Trigram chart)
+地盘 Di Pan (Earth Plate)
+十天干 10 Heavenly Stems
+八神 Ba Shen (8 God)
+天盘 Tian Pan (Heaven Plate)
+人盘 Ren Pan (Human Plate)
+驿马星(Yì Mǎ) Traveling Horse
+空 Kōng
+
+To calculate an accurate 24 solar terms table for Feng Shui, BaZi, or general Chinese calendrical studies using the San Yuan (Three Eras) framework, you must apply modern True Solar Time (Dingqi / 定氣) calculations based on the Sun's precise ecliptic longitude rather than old uniform time divisions. [[1](https://ytliu0.github.io/ChineseCalendar/solarTerms.html), [2](https://www.fastool.io/en/countdown/solar-terms), [3](https://ytliu0.github.io/ChineseCalendar/solarTerms.html)]
+1. Understand the Astronomical Basis
+
+* Ecliptic Longitude: The 24 solar terms divide the apparent annual path of the Sun into 24 exact intervals of 15 degrees each (360° / 24). [[1](https://novamastersconsulting.com/lunar/24-solar-terms/), [2](https://www.fastool.io/en/countdown/solar-terms)]
+* Start Point: The cycle begins when the Sun's true geocentric apparent ecliptic longitude reaches 315° (the Beginning of Spring / Lichun), or alternatively tracked from the Winter Solstice (270°) depending on the specific branch of study. [[1](https://www.hko.gov.hk/en/gts/astron2022/files/2022SolarTerms24.pdf), [2](https://ytliu0.github.io/ChineseCalendar/solarTerms.html), [3](https://novamastersconsulting.com/lunar/24-solar-terms/)]
+* Section (Jie) vs. Middle (Zhong) Terms: Odd-numbered points are sectional markers (Jieqi), and even-numbered points are middle markers (Zhongqi). [[1](https://ytliu0.github.io/ChineseCalendar/solarTerms.html), [2](https://novamastersconsulting.com/lunar/24-solar-terms/)]
+
+2. Choose the Calculation Engine
+Manual interpolation using ancient constant-time methods (Pingqi) is obsolete and inaccurate. Modern accurate tables require high-precision astronomical ephemeris formulas: [[1](https://ytliu0.github.io/ChineseCalendar/solarTerms.html)]
+
+* Algorithms: Use truncated VSOP87 planetary theories or Jean Meeus’ astronomical algorithms (Astronomical Algorithms by Jean Meeus) to compute the exact timestamp when solar longitude hits precise multiples of 15°. [[1](https://www.fastool.io/en/countdown/solar-terms)]
+* Time Correction: Convert the calculated Coordinated Universal Time (UTC) of the solar transit into Local True Solar Time (LTST). This requires adjusting for your exact geographic longitude and the equation of time (the discrepancy between apparent solar time and mean solar time).
+
+3. Apply San Yuan Cycle Rules
+In San Yuan practice, tables are mapped against sixty-year Jiazi cycles, divided into Upper, Middle, and Lower Eras (Yuan):
+
+* Align the precise computed Gregorian date and minute of the Jie (specifically Lichun or Dongzhi) with the corresponding stem-branch (Ganzhi) of the year and day.
+* Because the Earth's orbit is elliptical, the time interval between successive solar terms is variable (ranging roughly from 14 to 16 days), meaning precise hour and minute validation near midnight is critical to prevent shifting a day pillar incorrectly. [[1](https://ytliu0.github.io/ChineseCalendar/sunMoon.html), [2](https://ytliu0.github.io/ChineseCalendar/solarTerms.html)]
+
+The Sanyuan Futou Table (三元符头表) is a vital lookup tool in Qimen Dunjia (奇门遁甲). It aligns the 60 Sexagenary Cycle (Jiazi) pairs into three 5-day cycles called Upper Yuan (上元), Middle Yuan (中元), and Lower Yuan (下元).
+Each 5-day cycle is led by a specific heavenly stem known as the Futou (符头 - Leader / Stem-Head). The Futou is always a Jia (甲) or a Ji (己) stem.
+## The 60 Jiazi Sanyuan Futou Table
+The table below breaks down the 60-day cycle into its respective Yuan periods and identifies the ruling Futou for every group of 5 days.
+
+| Futou (Leader Stem-Head) 	| Upper Yuan (上元) Days 1–5 	| Middle Yuan (中元) Days 6–10 	| Lower Yuan (下元) Days 11–15 	|
+|---						|---							|---							|---							|
+| 甲子 (Jia-Zi) 				| 甲子, 乙丑, 丙寅, 丁卯, 戊辰 		| 己巳, 庚午, 辛未, 壬申, 癸酉 		| 甲戌, 乙亥, 丙子, 丁丑, 戊寅 		|
+| 甲戌 (Jia-Xu) 				| 己卯, 庚辰, 辛巳, 壬午, 癸未 		| 甲申, 乙酉, 丙戌, 丁亥, 戊子 		| 己丑, 庚寅, 辛卯, 壬辰, 癸巳 		|
+| 甲申 (Jia-Shen) 			| 甲午, 乙未, 丙申, 丁酉, 戊戌 		| 己亥, 庚子, 辛丑, 壬寅, 癸卯 		| 甲辰, 乙巳, 丙午, 丁未, 戊申 		|
+| 甲午 (Jia-Wu) 				| 己酉, 庚戌, 辛亥, 壬子, 癸丑 		| 甲寅, 乙卯, 丙辰, 丁巳, 戊午 		| 己未, 庚申, 辛酉, 壬戌, 癸亥 		|
+
+------------------------------
+## Key Rules for Reading the Table
+
+* Spotting the Futou: Look at the Day Stem of the day you are analyzing. Trace backwards to find the nearest previous day that starts with a Jia (甲) or Ji (己). That day is your Futou.
+* The Sanyuan Cycle:
+* Days starting with Jia (甲) or Ji (己) paired with Zi (子), Wu (午), Mao (卯), You (酉) always begin the Upper Yuan.
+* Days starting with Jia (甲) or Ji (己) paired with Yin (寅), Shen (申), Si (巳), Hai (亥) always begin the Middle Yuan.
+* Days starting with Jia (甲) or Ji (己) paired with Chen (辰), Xu (戌), Chou (丑), Wei (未) always begin the Lower Yuan.
+
+
+
+
+

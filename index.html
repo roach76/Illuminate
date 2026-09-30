@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#20273b">
+  <title>Illuminate</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%2320273b'/%3E%3Cpath d='M12 4L14 10L20 12L14 14L12 20L10 14L4 12L10 10Z' fill='%23e8c987'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%2320273b'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="app">
+  <header class="top-bar">
+    <div data-go="home" style="display: flex; flex-direction: column; cursor: pointer;">
+      <div class="brand">
+        <span class="orb"><svg class="brand-logo" viewBox="0 0 24 24"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z"/><circle cx="12" cy="12" r="3" fill="var(--plum)"/></svg></span>
+        Illuminate
+      </div>
+      <div id="brandTagline" style="font-size: 10px; color: var(--muted); margin-top: -2px; margin-left: 41px; letter-spacing: 0.05em; font-weight: 500;">Illuminating Life</div>
+    </div>
+    <button class="lang-btn" id="langToggle" style="background:var(--sand);border:1px solid var(--line);border-radius:12px;padding:4px 10px;font-weight:700;cursor:pointer;color:var(--plum)">中文</button>
+  </header>
+
+  <div id="storageWarningBanner" style="display:none;background:#fdecea;border:1px solid #f5c2c0;color:#7a2e2a;font-size:12px;line-height:1.5;padding:10px 14px;border-radius:8px;margin:0 0 12px 0;">
+    <span id="storageWarningText"></span>
+    <button id="btnDismissStorageWarning" type="button" style="background:none;border:none;color:#7a2e2a;font-weight:700;text-decoration:underline;cursor:pointer;padding:0;margin-left:8px;font-size:12px;">Dismiss</button>
+  </div>
+
+  <section class="view active" id="welcome">
+    <div style="padding-top: 5vh;">
+      <h1 id="welcomeTitle">Illuminating Life.</h1>
+      <p id="welcomeSub" class="sub">Personal reflection through BaZi, Qi Men Dun Jia, numerology and I Ching.</p>
+      <div class="art" style="height:170px;display:grid;place-items:center;margin:20px 0;"><div class="moon" style="width:56px;height:56px;background:var(--plum);border-radius:50%;box-shadow:18px 0 0 var(--sand);"></div></div>
+      <button class="primary" id="btnCreateAcc">Create an account</button>
+      <button class="secondary" id="btnSignIn">Sign in</button>
+    </div>
+  </section>
+
+  <section class="view" id="auth">
+    <h1 id="authTitle">Welcome</h1>
+    <p class="sub" id="authSub">Create a local account to save your profile in this browser.</p>
+    <label class="field"><span id="lblAuthEmail">Email</span><input id="email" type="email" placeholder="you@example.com" autocomplete="off"></label>
+    <label class="field"><span id="lblAuthPass">Password</span><input id="password" type="password" placeholder="At least 6 characters" autocomplete="off"></label>
+    <div id="authError" class="error"></div>
+    <button class="primary" id="authSubmit">Create account</button>
+    <p class="note" id="txtAuthNote">Stored locally on this device.</p>
+    <button class="secondary" id="modeToggle">I already have an account</button>
+  </section>
+
+  <section class="view" id="intake">
+    <div class="eyebrow" id="txtFoundation">Your foundation</div>
+    <h1 id="txtStoryBegin" style="font:500 41px/1.05 Georgia,serif;margin:10px 0 15px">When did your story begin?</h1>
+    <p class="sub" id="txtGregorianNote">Enter your Gregorian birth details to derive your Lunar and BaZi profiles.</p>
+    <div class="field-row"><label class="field"><span id="lblEnglishLastName">English Surname (姓) *</span><input id="englishLastName" maxlength="100" placeholder="e.g. Tan" required autocomplete="off"></label><label class="field"><span id="lblEnglishFirstName">English Given Name (名) *</span><input id="englishFirstName" maxlength="100" placeholder="e.g. Ah Ming" required autocomplete="off"></label></div>
+    <div class="field-row"><label class="field"><span id="lblChineseLastName">Chinese Surname (Optional)</span><input id="chineseLastName" maxlength="100" placeholder="e.g. 陈" autocomplete="off"></label><label class="field"><span id="lblChineseFirstName">Chinese Given Name (Optional)</span><input id="chineseFirstName" maxlength="100" placeholder="e.g. 明" autocomplete="off"></label></div>
+    <label class="field"><span id="lblBirthGender">Gender (Mandatory) *</span><select id="gender" required autocomplete="off"><option value="" disabled selected id="optSelectGender">Select Gender</option><option value="male" id="optMale">Male / 男</option><option value="female" id="optFemale">Female / 女</option></select></label>
+    
+    <div class="field-row">
+        <label class="field"><span id="lblBirthDate">Birth date *</span><input id="birthdate" type="date" required autocomplete="off"></label>
+        <label class="field"><span id="lblBirthTime">Birth time *</span><input id="birthtime" type="time" required autocomplete="off"></label>
+    </div>
+    
+    <input type="hidden" id="birthLocation" value="Singapore" autocomplete="off">
+    <label class="field"><span id="lblCountryLookup">Birth Country *</span>
+        <select id="birthCountrySelect" class="countrySelect" data-target="birth" required autocomplete="off"><option value="">-- Select Country --</option></select>
+    </label>
+    <label class="field" id="birthCityWrap" style="display:none"><span>This country has multiple time zones - select the closest city</span>
+      <select id="birthCitySelect" class="citySelect" data-target="birth" autocomplete="off"><option value="">-- Select City/Region --</option></select>
+    </label>
+    <input type="hidden" id="birthLongitude" value="103.8198" autocomplete="off">
+    <input type="hidden" id="birthTimezone" value="8" autocomplete="off">
+    <input type="hidden" id="birthLatitude" value="1.35" autocomplete="off">
+    <!-- ENHANCEMENT: Personal Assets (Mobile Number, Vehicle Number) collected here on intake, in
+         addition to remaining editable later from the Personal Assets section on your own profile. -->
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeMobile">Mobile Number (Optional)</span><input id="intakeMobileNumber" type="tel" maxlength="20" placeholder="e.g. 91234567" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakeVehicle">Vehicle Plate Number (Optional)</span><input id="intakeVehicleNumber" type="text" maxlength="20" placeholder="e.g. SJL1234A" autocomplete="off"></label>
+    </div>
+    <label class="checkbox-field"><input type="checkbox" id="intakeVehicleShared" autocomplete="off"><span id="lblIntakeVehicleShared">This vehicle is also used by my Life Partner</span></label>
+
+    <!-- ENHANCEMENT: Home Address/Construction Year collected here too (same underlying household-level
+         data used by the Feng Shui section below - entering it here or there saves to the same place).
+         UPDATED (reported: "Address is not fixed. It should be split into multiple fields as suggested
+         in the last few prompts"): this was the one remaining single free-text address field in the
+         app - the Feng Shui / Account page's own address entry was already split into structured
+         fields (Task #76/#77 - see ADDRESS_STRUCT_FIELDS in app.js) but this quick intake shortcut was
+         missed at the time. Now split the same way: House Number/Block, Street Name, Unit, City,
+         Country, Postal Code, each its own field, writing straight into the same structured
+         u.home.addresses.profile record the Feng Shui/Account page fields read and write - one
+         underlying value, editable from either place, not a separate duplicate copy (unchanged from
+         before, only HOW it's entered here changed). -->
+    <!-- UPDATED (reported: "For address details, house number/block, city, country, postal code should
+         be mandatory"): those 4 fields are now marked required (*) and enforced in #saveProfile's
+         validation below, matching the same 4 fields required on the Feng Shui/Account page's own copy
+         of this form (renderAddressFieldsHTML's callers). Street Name and Unit stay optional (Unit
+         genuinely doesn't apply to every address; Street Name is often redundant with House Number/Block
+         for many address formats) - not part of what was asked to be made mandatory. -->
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeHouseNumber">House Number / Block *</span><input id="intakeHouseNumber" type="text" maxlength="120" placeholder="e.g. 123" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakeStreetName">Street Name *</span><input id="intakeStreetName" type="text" maxlength="120" placeholder="e.g. Orchard Road" autocomplete="off"></label>
+    </div>
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeUnit">Unit (if applicable)</span><input id="intakeUnit" type="text" maxlength="120" placeholder="e.g. #05-12" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakeCity">City *</span><input id="intakeCity" type="text" maxlength="120" placeholder="e.g. Singapore" autocomplete="off"></label>
+    </div>
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeCountry">Country *</span><input id="intakeCountry" type="text" maxlength="120" placeholder="e.g. Singapore" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakePostalCode">Postal Code *</span><input id="intakePostalCode" type="text" maxlength="120" placeholder="e.g. 238859" autocomplete="off"></label>
+    </div>
+    <label class="field"><span id="lblIntakeHomeYear">Construction Year (Optional, for Flying Star)</span><input id="intakeHomeConstructionYear" type="number" min="1864" max="2043" placeholder="e.g. 2015" autocomplete="off"></label>
+    <!-- ENHANCEMENT (reported: "Address input missing home facing direction"): the same Home Facing
+         Direction used by the Ba Zhai Compass School / Home Address block on the Feng Shui/Account page
+         (u.profile.fsDir) can now also be set right here while entering the rest of the address, instead
+         of only on that other page. Optional here (Ba Zhai readings already prompt for it separately if
+         left blank), consistent with how Construction Year above is optional too. -->
+    <label class="field"><span id="lblIntakeFsDir">Home Facing Direction (Optional, for Feng Shui)</span>
+        <select id="intakeFsDir" autocomplete="off">
+            <option value="">-- Select Direction --</option>
+            <option value="North">North (北)</option>
+            <option value="Northeast">Northeast (东北)</option>
+            <option value="East">East (东)</option>
+            <option value="Southeast">Southeast (东南)</option>
+            <option value="South">South (南)</option>
+            <option value="Southwest">Southwest (西南)</option>
+            <option value="West">West (西)</option>
+            <option value="Northwest">Northwest (西北)</option>
+        </select>
+    </label>
+    <!-- ENHANCEMENT (reported: "Address input should have a checkbox to indicate if the address is a
+         shared address"): same "checkbox-field" pattern already used for #intakeVehicleShared just
+         above - always visible, harmless to tick even before a Life Partner is added (it only actually
+         affects scoring/display once one exists - see buildPersonalAssetsSummaryRows). -->
+    <label class="checkbox-field"><input type="checkbox" id="intakeAddrShared" autocomplete="off"><span id="lblIntakeAddrShared">Shared address with Life Partner</span></label>
+
+    <!-- ENHANCEMENT (reported: "profile address should only apply to user, life partner, house
+         occupants... business partners should not inherit the address, unless it is a work address.
+         There should an option to add work address to check for compatibility and deep analysis for
+         user and business partners"): a separate, optional Work Address, entered here alongside the
+         Home Address above, into its own u.home.addresses.work record. It is never used for Feng Shui
+         (no Construction Year or Home Facing Direction fields - those are meaningless for a workplace),
+         only for the same digit/character-based Compatibility scoring already used for Mobile Number
+         and Vehicle Plate - see buildPersonalAssetsSummaryRows in app.js. -->
+    <h3 id="lblIntakeWorkAddrHeading" style="margin-top:18px">Work / Business Address (Optional)</h3>
+    <p class="sub" id="txtIntakeWorkAddrSub" style="margin-top:-4px">Used only for Address Compatibility for you and any Business Partner(s) - not shared with your Life Partner, Children, or Household Occupants.</p>
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeWorkHouseNumber">House Number / Block</span><input id="intakeWorkHouseNumber" type="text" maxlength="120" placeholder="e.g. 1" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakeWorkStreetName">Street Name</span><input id="intakeWorkStreetName" type="text" maxlength="120" placeholder="e.g. Raffles Place" autocomplete="off"></label>
+    </div>
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeWorkUnit">Unit (if applicable)</span><input id="intakeWorkUnit" type="text" maxlength="120" placeholder="e.g. #12-01" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakeWorkCity">City</span><input id="intakeWorkCity" type="text" maxlength="120" placeholder="e.g. Singapore" autocomplete="off"></label>
+    </div>
+    <div class="field-row">
+        <label class="field"><span id="lblIntakeWorkCountry">Country</span><input id="intakeWorkCountry" type="text" maxlength="120" placeholder="e.g. Singapore" autocomplete="off"></label>
+        <label class="field"><span id="lblIntakeWorkPostalCode">Postal Code</span><input id="intakeWorkPostalCode" type="text" maxlength="120" placeholder="e.g. 048616" autocomplete="off"></label>
+    </div>
+
+    <div id="profileError" class="error"></div>
+    <button class="primary" id="saveProfile">Save Profile</button>
+  </section>
+
+  <!-- TODAY / LANDING PAGE -->
+  <section class="view" id="home">
+    <div class="top" style="margin-top:10px"><div></div><div class="avatar" id="avatar"></div></div>
+    <!-- ENHANCEMENT (reported: "The what's new should be removed from the landing page. Document in
+         the notes and instructions instead"): the What's New banner element is gone - its content now
+         only lives in UPDATE_NOTES_AND_INSTRUCTIONS.md's own "Latest enhancement" section. -->
+    <!-- ENHANCEMENT (reported: "remove the 'Hello, XXX' and retain the day and date"): the greeting h1
+         is gone; #todayDate (already "Weekday, D Month YYYY") is now the sole heading here. -->
+    <div class="greeting"><div class="date date-as-heading" id="todayDate"></div></div>
+    
+    <article class="day" data-go="chart" style="background: linear-gradient(135deg, #292c44, #4c3550);">
+      <div class="eyebrow" style="color:#e9c98b" id="txtDailyCompass">Your Daily Compass & Integrated Reading</div>
+      <h2 id="dailyTitle"></h2>
+      <div id="individualLunarBadge" class="lunar-badge"></div>
+      <div id="landingCombinedReading" class="guidance" style="font-size:12px;border-color:rgba(255,255,255,0.1)"></div>
+    </article>
+
+    <article class="day hidden" data-go="partnerView" id="partnerSummaryCard" style="background: linear-gradient(135deg, #3d2a45, #22273c);">
+      <div class="eyebrow" style="color:#f2c98a" id="txtPartnerSummaryEyebrow">Life Partner Summary & Daily Outlook</div>
+      <h2 id="partnerSummaryTitle" style="font-size:22px"></h2>
+      <div id="partnerLunarBadge" class="lunar-badge"></div>
+      <div id="landingPartnerCompatSection" class="guidance" style="font-size:12px;border-color:rgba(255,255,255,0.1)"></div>
+    </article>
+
+    <article class="day hidden" data-go="bizView" id="bizSummaryCard" style="background: linear-gradient(135deg, #203b38, #1a2e3b);">
+      <div class="eyebrow" style="color:#8be9c9" id="txtBizSummaryEyebrow">Business Partner Summary & Alignment</div>
+      <h2 id="bizSummaryTitle" style="font-size:22px"></h2>
+      <div id="bizLunarBadge" class="lunar-badge" style="background:#8be9c92e;border-color:#8be9c966;color:#8be9c9"></div>
+      <div id="landingBizCompatSection" class="guidance" style="font-size:12px;border-color:rgba(255,255,255,0.1)"></div>
+    </article>
+
+    <div class="headrow"><h2 id="txtYourSystems">Systems</h2><button class="linkbtn" data-go="chart" id="btnViewAll">View all</button></div>
+    <div class="grid">
+      <button class="mini" data-reading="nameanalysis"><div class="symbol">名</div><strong id="lblSysName">Name Analysis</strong><span id="subSysName">Destiny Grids</span></button>
+      <button class="mini" data-reading="zodiac"><div class="symbol">肖</div><strong id="lblSysZodiac">Zodiac</strong><span id="subSysZodiac">Allies & Conflict</span></button>
+      <button class="mini" data-reading="mingli"><div class="symbol">命</div><strong id="lblSysMingLi">Ming Li (命理)</strong><span id="subSysMingLi">Destiny Analysis</span></button>
+      <button class="mini" data-reading="dayun"><div class="symbol">运</div><strong id="lblSysDaYun">Da Yun (大运)</strong><span id="subSysDaYun">Luck Cycles</span></button>
+      <button class="mini" data-reading="qmdj"><div class="symbol">奇</div><strong id="lblSysQmdj">Qi Men Dun Jia</strong><span id="subSysQmdj">Natal Palace</span></button>
+      <button class="mini" data-reading="ziweidoushu"><div class="symbol">紫</div><strong id="lblSysZiWei">Zi Wei Dou Shu</strong><span id="subSysZiWei">Purple Star</span></button>
+      <button class="mini" data-reading="boneweight"><div class="symbol">骨</div><strong id="lblSysBone">Bone Weight (称骨)</strong><span id="subSysBone">Cheng Gu Suan Ming</span></button>
+      <button class="mini" data-reading="fengshui"><div class="symbol">风</div><strong id="lblSysFs">Feng Shui (风水)</strong><span id="subSysFs">Environmental</span></button>
+      <button class="mini" data-reading="iching"><div class="symbol">易</div><strong id="lblSysIChing">I Ching (易经)</strong><span id="subSysIChing">Hexagrams</span></button>
+      <button class="mini" data-reading="zeri"><div class="symbol">择</div><strong id="lblSysZeRi">Ze Ri (择日)</strong><span id="subSysZeRi">Date Selection</span></button>
+      <button class="mini" data-reading="xiangshu"><div class="symbol">相</div><strong id="lblSysXiang">Xiang Shu (相术)</strong><span id="subSysXiang">Physiognomy</span></button>
+      <button class="mini" data-reading="numerology"><div class="symbol">数</div><strong id="lblSysNum">Numerology</strong><span id="subSysNum">Life Path</span></button>
+      <button class="mini" data-reading="westernastrology"><div class="symbol">⭐</div><strong id="lblSysWestern">Western Astrology</strong><span id="subSysWestern">Sun Sign</span></button>
+    </div>
+
+    <!-- ENHANCEMENT (reported: "remove the personal assets section from the system list on the
+         landing page. No changes to personal assets on the other pages."): this standalone "Personal
+         Assets & Address" summary card used to sit here, right below the Systems grid - now redundant
+         since that same Mobile Number/Vehicle Plate(s)/Address Compatibility summary is already shown
+         inline inside each profile's own top summary card just above (see generateSummaryCardHTML's
+         assetsSummaryHTML). Removed from the Home page only - the actual Personal Assets section on
+         each profile's own chart page (where these fields are entered/edited), the Account page's
+         Export Readiness checklist, and the PDF export are all completely unaffected. -->
+
+    <!-- ENHANCEMENT (reported: "Move the mobile number and vehicle plate checker into the personal
+         assets section. They should not reside in the landing page"): the "Vehicle Plate Check and
+         Generator" / "Mobile Phone Check and Generator" tools that used to sit here (as a single,
+         profile-agnostic widget always scored against the main individual profile) now render
+         per-profile, inside that profile's own Personal Assets section on its chart page - see
+         renderNumberCheckerGeneratorBlock in app.js. Removed from the Home page entirely. -->
+
+    <div class="headrow" style="margin-top:25px"><h2 id="txtMetaSuggestions">Metaphysical Suggestions</h2></div>
+    <article class="forecast"><span class="pill" id="lblFourDPill">Singapore Pools 4D</span><h3 id="txtFourDHeading" style="margin-bottom:12px">Singapore Pools 4D Results and Predictions</h3><div id="fourDContainer"></div></article>
+    <article class="forecast"><span class="pill" id="lblTotoPill">Singapore Pools TOTO</span><h3 id="txtTotoHeading" style="margin-bottom:12px">Singapore Pools TOTO Results and Predictions</h3><div id="totoContainer"></div></article>
+    <p class="disclaimer" id="txtDisclaimer">For reflection and entertainment; not scientific, financial, or medical advice.</p>
+  </section>
+
+  <!-- Detail Views -->
+  <section class="view" id="chart">
+    <div class="detail" style="display:flex; justify-content:space-between; align-items:center;">
+      <div style="display:flex;align-items:center;gap:12px"><button class="back" data-go="home">←</button><h1 id="txtYourChart">Your chart</h1></div>
+      <button class="btnExportPdf" data-prefix="i" style="font-size:12px;border:0;background:var(--sand);padding:6px 12px;border-radius:12px;color:var(--plum);font-weight:700;cursor:pointer;">📄 <span id="txtExportPdf">Export PDF</span></button>
+    </div>
+    <div id="chartChips" class="chips"></div><div id="chartContent"></div>
+  </section>
+  
+  <section class="view" id="compat">
+    <div class="detail"><button class="back" data-go="home">←</button><h1 id="txtPartnerCompat">Life partner compatibility</h1></div><p class="sub" id="txtCompatSub">Compare your profiles for reflective relationship insights.</p>
+    <div class="field-row"><label class="field"><span id="lblPartnerEngLast">Partner English Surname (姓) *</span><input id="partnerEnglishLastName" maxlength="100" placeholder="e.g. Tan" required autocomplete="off"></label><label class="field"><span id="lblPartnerEngFirst">Partner English Given Name (名) *</span><input id="partnerEnglishFirstName" maxlength="100" placeholder="e.g. Ah Ming" required autocomplete="off"></label></div>
+    <div class="field-row"><label class="field"><span id="lblPartnerChiLast">Partner Chinese Surname</span><input id="partnerChineseLastName" maxlength="100" placeholder="e.g. 陈" autocomplete="off"></label><label class="field"><span id="lblPartnerChiFirst">Partner Chinese Given Name</span><input id="partnerChineseFirstName" maxlength="100" placeholder="e.g. 明" autocomplete="off"></label></div>
+    <label class="field"><span id="lblPartnerGender">Partner Gender (Mandatory) *</span><select id="partnerGender" required autocomplete="off"><option value="" disabled selected id="optPSelectGender">Select Gender</option><option value="male" id="optPMale">Male / 男</option><option value="female" id="optPFemale">Female / 女</option></select></label>
+    
+    <div class="field-row">
+        <label class="field"><span id="lblPartnerDate">Partner birth date *</span><input id="partnerDate" type="date" required autocomplete="off"></label>
+        <label class="field"><span id="lblPartnerTime">Partner birth time *</span><input id="partnerTime" type="time" required autocomplete="off"></label>
+    </div>
+    
+    <input type="hidden" id="partnerLocation" value="Singapore" autocomplete="off">
+    <label class="field"><span id="lblPartnerCountryLookup">Birth Country *</span>
+        <select id="partnerCountrySelect" class="countrySelect" data-target="partner" required autocomplete="off"><option value="">-- Select Country --</option></select>
+    </label>
+    <label class="field" id="partnerCityWrap" style="display:none"><span>This country has multiple time zones - select the closest city</span>
+      <select id="partnerCitySelect" class="citySelect" data-target="partner" autocomplete="off"><option value="">-- Select City/Region --</option></select>
+    </label>
+    <input type="hidden" id="partnerLongitude" value="103.8198" autocomplete="off">
+    <input type="hidden" id="partnerTimezone" value="8" autocomplete="off">
+    <input type="hidden" id="partnerLatitude" value="1.35" autocomplete="off">
+    <div class="field-row">
+        <label class="field"><span id="lblPartnerMobile">Mobile Number (Optional)</span><input id="partnerMobileNumber" type="tel" maxlength="20" placeholder="e.g. 91234567" autocomplete="off"></label>
+        <label class="field"><span id="lblPartnerVehicle">Vehicle Plate Number (Optional)</span><input id="partnerVehicleNumber" type="text" maxlength="20" placeholder="e.g. SJL1234A" autocomplete="off"></label>
+    </div>
+    <label class="checkbox-field"><input type="checkbox" id="partnerVehicleShared" autocomplete="off"><span id="lblPartnerVehicleShared">This vehicle is also used by me (the individual)</span></label>
+
+    <div id="compatError" class="error"></div><button class="primary" id="btnCalculateCompat">Calculate life partner compatibility</button>
+  </section>
+  
+  <section class="view" id="businessTab">
+    <div class="detail"><button class="back" data-go="home">←</button><h1 id="txtBizHeader">Business partner alignment</h1></div><p class="sub" id="txtBizSub">Evaluate strategic execution synergy and commercial alignment.</p>
+    <div class="field-row"><label class="field"><span id="lblBizEngLast">Business Partner Surname (姓) *</span><input id="bizEnglishLastName" maxlength="100" placeholder="e.g. Tan" required autocomplete="off"></label><label class="field"><span id="lblBizEngFirst">Business Partner Given Name (名) *</span><input id="bizEnglishFirstName" maxlength="100" placeholder="e.g. Ah Ming" required autocomplete="off"></label></div>
+    <div class="field-row"><label class="field"><span id="lblBizChiLast">Business Partner Chinese Surname</span><input id="bizChineseLastName" maxlength="100" placeholder="e.g. 陈" autocomplete="off"></label><label class="field"><span id="lblBizChiFirst">Business Partner Chinese Given Name</span><input id="bizChineseFirstName" maxlength="100" placeholder="e.g. 明" autocomplete="off"></label></div>
+    <label class="field"><span id="lblBizGender">Partner Gender (Mandatory) *</span><select id="bizGender" required autocomplete="off"><option value="" disabled selected id="optBSelectGender">Select Gender</option><option value="male" id="optBMale">Male / 男</option><option value="female" id="optBFemale">Female / 女</option></select></label>
+    
+    <div class="field-row">
+        <label class="field"><span id="lblBizDate">Partner birth date *</span><input id="bizDate" type="date" required autocomplete="off"></label>
+        <label class="field"><span id="lblBizTime">Partner birth time *</span><input id="bizTime" type="time" required autocomplete="off"></label>
+    </div>
+    
+    <input type="hidden" id="bizLocation" value="Singapore" autocomplete="off">
+    <label class="field"><span id="lblBizCountryLookup">Birth Country *</span>
+        <select id="bizCountrySelect" class="countrySelect" data-target="biz" required autocomplete="off"><option value="">-- Select Country --</option></select>
+    </label>
+    <label class="field" id="bizCityWrap" style="display:none"><span>This country has multiple time zones - select the closest city</span>
+      <select id="bizCitySelect" class="citySelect" data-target="biz" autocomplete="off"><option value="">-- Select City/Region --</option></select>
+    </label>
+    <input type="hidden" id="bizLongitude" value="103.8198" autocomplete="off">
+    <input type="hidden" id="bizTimezone" value="8" autocomplete="off">
+    <input type="hidden" id="bizLatitude" value="1.35" autocomplete="off">
+    <label class="field"><span id="lblBizMobile">Mobile Number (Optional)</span><input id="bizMobileNumber" type="tel" maxlength="20" placeholder="e.g. 91234567" autocomplete="off"></label>
+
+    <div id="bizError" class="error"></div><button class="primary" id="btnCalculateBiz">Calculate business alignment</button>
+
+    <!-- ENHANCEMENT: up to 2 additional Business Partners (3 total, the slot above is the "core") -->
+    <div id="additionalBizListContainer" style="margin-top:20px"></div>
+    <div id="bizAddFormWrap" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+      <h2 class="section-header" id="txtAddAnotherBiz" style="font-size:18px;margin-top:0">Add Another Business Partner (up to 3 total)</h2>
+      <div class="field-row"><label class="field"><span id="lblBiz2EngLast">Business Partner Surname (姓) *</span><input id="biz2EnglishLastName" maxlength="100" placeholder="e.g. Tan" required autocomplete="off"></label><label class="field"><span id="lblBiz2EngFirst">Business Partner Given Name (名) *</span><input id="biz2EnglishFirstName" maxlength="100" placeholder="e.g. Ah Ming" required autocomplete="off"></label></div>
+      <div class="field-row"><label class="field"><span id="lblBiz2ChiLast">Business Partner Chinese Surname</span><input id="biz2ChineseLastName" maxlength="100" placeholder="e.g. 陈" autocomplete="off"></label><label class="field"><span id="lblBiz2ChiFirst">Business Partner Chinese Given Name</span><input id="biz2ChineseFirstName" maxlength="100" placeholder="e.g. 明" autocomplete="off"></label></div>
+      <label class="field"><span id="lblBiz2Gender">Partner Gender (Mandatory) *</span><select id="biz2Gender" required autocomplete="off"><option value="" disabled selected id="optB2SelectGender">Select Gender</option><option value="male" id="optB2Male">Male / 男</option><option value="female" id="optB2Female">Female / 女</option></select></label>
+      <div class="field-row">
+          <label class="field"><span id="lblBiz2Date">Partner birth date *</span><input id="biz2Date" type="date" required autocomplete="off"></label>
+          <label class="field"><span id="lblBiz2Time">Partner birth time *</span><input id="biz2Time" type="time" required autocomplete="off"></label>
+      </div>
+      <input type="hidden" id="biz2Location" value="Singapore" autocomplete="off">
+      <label class="field"><span id="lblBiz2CountryLookup">Birth Country *</span>
+          <select id="biz2CountrySelect" class="countrySelect" data-target="biz2" required autocomplete="off"><option value="">-- Select Country --</option></select>
+      </label>
+    <label class="field" id="biz2CityWrap" style="display:none"><span>This country has multiple time zones - select the closest city</span>
+      <select id="biz2CitySelect" class="citySelect" data-target="biz2" autocomplete="off"><option value="">-- Select City/Region --</option></select>
+    </label>
+      <input type="hidden" id="biz2Longitude" value="103.8198" autocomplete="off">
+      <input type="hidden" id="biz2Timezone" value="8" autocomplete="off">
+      <input type="hidden" id="biz2Latitude" value="1.35" autocomplete="off">
+      <label class="field"><span id="lblBiz2Mobile">Mobile Number (Optional)</span><input id="biz2MobileNumber" type="tel" maxlength="20" placeholder="e.g. 91234567" autocomplete="off"></label>
+      <div id="biz2Error" class="error"></div>
+      <button class="primary" id="btnAddBizPartner2">Add Business Partner</button>
+    </div>
+  </section>
+
+  <section class="view" id="partnerView">
+    <div class="detail" style="display:flex; justify-content:space-between; align-items:center;">
+       <div style="display:flex;align-items:center;gap:12px"><button class="back" data-go="home">←</button><h1 id="txtFullPartnerHeader">Full Partner Assessment</h1></div>
+       <div style="display:flex;align-items:center;gap:8px">
+         <button class="btnExportPdf" data-prefix="p" style="font-size:12px;border:0;background:var(--sand);padding:6px 12px;border-radius:12px;color:var(--plum);font-weight:700;cursor:pointer;">📄</button>
+         <button id="btnEditPartner" style="font-size:12px;border:0;background:var(--sand);padding:6px 12px;border-radius:12px;color:var(--plum);font-weight:700;cursor:pointer;">Edit</button>
+         <button id="btnRemovePartner" style="font-size:12px;border:0;background:var(--danger);padding:6px 12px;border-radius:12px;color:#fff;font-weight:700;cursor:pointer;">Remove</button>
+       </div>
+    </div>
+    <div id="partnerViewContent"></div>
+  </section>
+  
+  <section class="view" id="bizView">
+    <div class="detail" style="display:flex; justify-content:space-between; align-items:center;">
+       <div style="display:flex;align-items:center;gap:12px"><button class="back" data-go="home">←</button><h1 id="txtFullBizHeader">Full Business Partner Assessment</h1></div>
+       <div style="display:flex;align-items:center;gap:8px">
+         <button class="btnExportPdf" data-prefix="b" style="font-size:12px;border:0;background:var(--sand);padding:6px 12px;border-radius:12px;color:var(--plum);font-weight:700;cursor:pointer;">📄</button>
+         <button id="btnEditBiz" style="font-size:12px;border:0;background:var(--sand);padding:6px 12px;border-radius:12px;color:var(--plum);font-weight:700;cursor:pointer;">Edit</button>
+         <button id="btnRemoveBiz" style="font-size:12px;border:0;background:var(--danger);padding:6px 12px;border-radius:12px;color:#fff;font-weight:700;cursor:pointer;">Remove</button>
+       </div>
+    </div>
+    <div id="bizViewContent"></div>
+    <div id="additionalBizChartsContainer"></div>
+    <div id="bizOverallCompatSection"></div>
+  </section>
+  
+  <section class="view" id="account"><div class="detail"><button class="back" data-go="home">←</button><h1 id="txtAccountHeader">Account</h1></div><div id="accountInfo"></div>
+    <div class="settings"><h2 id="txtProfileHeader">Profile</h2><button class="linkbtn" id="editProfile">Edit birth details</button><h2 id="txtPrivacyHeader">Privacy</h2><button class="linkbtn" id="signOut">Sign out from this device</button></div>
+    <!-- ENHANCEMENT (outstanding item: "consolidate all profile-editing fields onto one page"): a
+         single hub listing every profile on the account (you, Life Partner, Business Partner(s),
+         children) with one tap straight to that profile's own edit form - instead of hunting through
+         separate nav tabs to remember where each one lives. Each editor itself is unchanged (still its
+         own established form/validation), so this is a low-risk navigational consolidation rather than
+         a risky merge of unrelated data models into one giant form. -->
+    <div class="settings">
+      <h2 id="txtManageProfilesHeader">Manage Profiles</h2>
+      <p class="note" id="txtManageProfilesNote">Jump straight to editing any profile from here.</p>
+      <div id="manageProfilesList"></div>
+    </div>
+    <!-- REMOVED (reported: "household occupants should not be fixed. it should be flexible and framed
+         as add profile... incorporate the household occupants into the add person option under people
+         instead and remove the household occupants section"): the standalone, fixed "Household
+         Occupants" settings block that used to sit here (id="accountOccupantsSection", rendered by the
+         now-removed renderAccountOccupantsList()) is gone. Adding a household occupant is now just one
+         more role tag ("Household Occupant") on the flexible "People" screen directly below - the same
+         single add/edit form used for a Life Partner, Business Partner or Child, rather than a separate
+         fixed section of its own. The underlying data (u.profile.bazhaiOccupants) and every downstream
+         reading/PDF/compatibility engine that reads it are completely unaffected - see
+         rebuildLegacySlotsFromPeople() in engine-core.js, which has always derived bazhaiOccupants from
+         'occupant'-tagged people. This also removes the one remaining place in the app where the main
+         profile's ('i') occupant-form ids could ever appear twice in the live document at once (this
+         section plus the Feng Shui tab's own read-only summary never actually duplicated ids - see
+         UPDATE_NOTES_AND_INSTRUCTIONS.md for the full account of that investigation) - one less
+         add/edit surface for the same data is simply a smaller, easier-to-reason-about DOM either way. -->
+    <!-- ENHANCEMENT (this round - unified multi-role People model): a single list of every OTHER
+         person on the account (Life Partner / Business Partner / Child / Household Occupant), where
+         one real person can carry multiple role tags at once (e.g. someone who is both your Life
+         Partner and a Business Partner) instead of being entered twice under two separate slots. This
+         is deliberately kept ALONGSIDE the existing "Manage Profiles" hub above (rather than replacing
+         it), so the fixed-slot hub's own established behaviour/tests are left completely untouched -
+         see renderPeopleManagementList() in app.js. As of this round, this is also the ONLY place to
+         add/edit a Household Occupant - just tag a person "Household Occupant" here. -->
+    <div class="settings" id="peopleManagementSection">
+      <h2 id="txtPeopleManagementHeader">People</h2>
+      <p class="note" id="txtPeopleManagementNote">Add, edit or tag roles for anyone else on this account - one person can hold multiple roles (e.g. Life Partner AND Business Partner) at once. For a Household Occupant, only Birth Date is required - Name, Gender and Birth Time are optional.</p>
+      <div id="peopleManagementList"></div>
+    </div>
+    <div class="settings">
+      <h2 id="txtExportCenterHeader">Export Center</h2>
+      <p class="note" id="txtExportCenterNote">Export a full PDF report for any profile, or export every profile at once as separate files in one ZIP download.</p>
+      <div id="exportReadinessChecklist"></div>
+      <button class="secondary" id="btnExportAllZip" style="background:var(--plum);color:#fff;border-radius:8px;font-weight:700;margin-bottom:12px">📦 <span id="txtExportAllZip">Export All Profiles (ZIP)</span></button>
+      <div id="exportCenterList"></div>
+    </div>
+  </section>
+
+  <!-- ENHANCEMENT: Children tab - up to 5 child profiles with full compatibility matrix -->
+  <section class="view" id="childrenTab">
+    <div class="detail"><button class="back" data-go="home">←</button><h1 id="txtChildrenHeader">Children</h1></div>
+    <p class="sub" id="txtChildrenSub">Add up to 5 child profiles for full BaZi readings and family compatibility.</p>
+    <div id="childrenListContainer"></div>
+    <div id="childAddFormWrap" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+      <div class="field-row"><label class="field"><span id="lblChildEngLast">Child English Surname (姓) *</span><input id="childEnglishLastName" maxlength="100" placeholder="e.g. Tan" required autocomplete="off"></label><label class="field"><span id="lblChildEngFirst">Child English Given Name (名) *</span><input id="childEnglishFirstName" maxlength="100" placeholder="e.g. Ah Ming" required autocomplete="off"></label></div>
+      <div class="field-row"><label class="field"><span id="lblChildChiLast">Child Chinese Surname</span><input id="childChineseLastName" maxlength="100" placeholder="e.g. 陈" autocomplete="off"></label><label class="field"><span id="lblChildChiFirst">Child Chinese Given Name</span><input id="childChineseFirstName" maxlength="100" placeholder="e.g. 明" autocomplete="off"></label></div>
+      <label class="field"><span id="lblChildGender">Child Gender (Mandatory) *</span><select id="childGender" required autocomplete="off"><option value="" disabled selected id="optCSelectGender">Select Gender</option><option value="male" id="optCMale">Male / 男</option><option value="female" id="optCFemale">Female / 女</option></select></label>
+      <div class="field-row">
+          <label class="field"><span id="lblChildDate">Child birth date *</span><input id="childDate" type="date" required autocomplete="off"></label>
+          <label class="field"><span id="lblChildTime">Child birth time *</span><input id="childTime" type="time" required autocomplete="off"></label>
+      </div>
+      <input type="hidden" id="childLocation" value="Singapore" autocomplete="off">
+      <label class="field"><span id="lblChildCountryLookup">Birth Country *</span>
+          <select id="childCountrySelect" class="countrySelect" data-target="child" required autocomplete="off"><option value="">-- Select Country --</option></select>
+      </label>
+    <label class="field" id="childCityWrap" style="display:none"><span>This country has multiple time zones - select the closest city</span>
+      <select id="childCitySelect" class="citySelect" data-target="child" autocomplete="off"><option value="">-- Select City/Region --</option></select>
+    </label>
+      <input type="hidden" id="childLongitude" value="103.8198" autocomplete="off">
+      <input type="hidden" id="childTimezone" value="8" autocomplete="off">
+      <input type="hidden" id="childLatitude" value="1.35" autocomplete="off">
+      <label class="field"><span id="lblChildMobile">Mobile Number (Optional)</span><input id="childMobileNumber" type="tel" maxlength="20" placeholder="e.g. 91234567" autocomplete="off"></label>
+      <div id="childError" class="error"></div>
+      <button class="primary" id="btnAddChild">Add Child Profile</button>
+    </div>
+    <div id="familyCompatSection" style="margin-top:20px"></div>
+  </section>
+
+  <!-- ENHANCEMENT: Hourly Daily Highlights tab -->
+  <section class="view" id="hourlyTab">
+    <div class="detail"><button class="back" data-go="home">←</button><h1 id="txtHourlyHeader">Daily Highlights</h1></div>
+    <p class="sub" id="txtHourlySub">Hour-by-hour breakdown of today's energy, based on your BaZi, Qi Men Dun Jia, Zi Wei Dou Shu, and Chinese Name.</p>
+    <div id="hourlyContent"></div>
+  </section>
+
+  <!-- ENHANCEMENT: Detailed Reading tab -->
+  <section class="view" id="detailedReadingTab">
+    <div class="detail"><button class="back" data-go="home">←</button><h1 id="txtDetailedReadingHeader">Detailed Reading</h1></div>
+    <p class="sub" id="txtDetailedReadingSub">A full narrative BaZi reading covering Life, Career, Wealth, Luck, Love, Health, and your current and upcoming Year and Luck Pillar cycles.</p>
+    <div id="detailedReadingContent"></div>
+  </section>
+
+  <nav class="nav hidden" id="nav">
+    <button data-go="home"><i>⌂</i><span id="navTodayText">Today</span></button>
+    <button data-go="chart"><i>◌</i><span id="navChartText">Chart</span></button>
+    <button data-go="hourlyTab"><i>⏰</i><span id="navHourlyText">Hourly</span></button>
+    <button data-go="detailedReadingTab"><i>📖</i><span id="navDetailedReadingText">Reading</span></button>
+    <button data-go="compat"><i>♡</i><span id="navCompatText">Partner</span></button>
+    <button data-go="businessTab"><i>⊞</i><span id="navBizText">Business</span></button>
+    <button data-go="childrenTab"><i>👶</i><span id="navChildrenText">Children</span></button>
+    <button data-go="account"><i>◍</i><span id="navAccountText">Account</span></button>
+  </nav>
+
+  <!-- ENHANCEMENT (this round): shared modal for all "Deep Analysis" popups, opened via
+       renderStandardDeepAnalysis's button + the btnViewDeepAnalysis click handler in app.js -->
+  <div id="deepAnalysisModalOverlay" class="modal-overlay hidden">
+    <div class="modal-box">
+      <button id="deepAnalysisModalClose" class="modal-close" aria-label="Close">×</button>
+      <div id="deepAnalysisModalContent"></div>
+    </div>
+  </div>
+</main>
+<!-- BUG FIX (reported: "the app does not load" / loads only after ~90 seconds): html2pdf.js and
+     jszip.min.js are only ever called from inside PDF-export functions, triggered much later by a
+     user click - they were never needed for the app to load or become usable. But as plain, ordinary
+     <script> tags, a browser will not fire DOMContentLoaded (which is what runs initListeners() and
+     shows the actual app) until AFTER both of these have either finished loading or given up trying -
+     in this sandbox's network, a blocked request to cdnjs.cloudflare.com fails almost instantly, but
+     on a real-world network where the request instead times out slowly (e.g. a firewall that silently
+     drops the connection instead of rejecting it outright), that wait can stretch to a minute or more,
+     during which the entire app appears to hang. `async` decouples these two from the page's load
+     sequence entirely: they now fetch in the background and DOMContentLoaded fires immediately once
+     the app's own local scripts are ready, regardless of how long (or whether) the CDN request takes.
+     The app's own PDF-export code already checks `typeof html2pdf === 'undefined'` /
+     `typeof JSZip === 'undefined'` before using either one and shows a clear, friendly message if the
+     library genuinely isn't available yet - so this change is safe even if someone clicks Export
+     before a slow network finishes fetching these two files. -->
+<script src="engine-core.js"></script>
+<script src="engine-metaphysics.js"></script>
+<script src="engine-predictions.js"></script>
+<script src="auth.js"></script>
+<script src="app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" async></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" async></script>
+</body>
+</html>

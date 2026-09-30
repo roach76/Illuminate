@@ -1,0 +1,260 @@
+You are a professional programming and you are tasked to create a metaphysics app with the following information:
+ - Follow professional programming practices
+ - Ensure that the app is separated into HTML, CSS, JS files (split the JS files into separate file for code efficiency, if necessary)
+
+Branding
+1) App Name: Illuminate
+2) Tag Line: Illuminating Life
+3) Logo: Create a suitable logo
+
+User provided information
+1) Account Creation
+ - Account management
+ - Check for valid email and verify email before account can be activated successfully
+ - Ensure password if minimum of 6 characters with minimum 1 Capital Alphabet, and 1 number
+2) User to input personal profile information
+ - Surname, Given Full Name
+ - Optional Chinese Surname and Given Name
+ - Gender
+ - Gregorian Birthdate and exact time
+ - Location of Birth
+3) User to input Life Partner information
+ - Surname, Given Full Name
+ - Optional Chinese Surname and Given Name
+ - Gender
+ - Gregorian Birthdate and exact time
+ - Location of Birth
+4) User to input Business Partner information
+ - Surname, Given Full Name
+ - Optional Chinese Surname and Given Name
+ - Gender
+ - Gregorian Birthdate and exact time
+ - Location of Birth
+5) Administrator login to manage App
+ - Admin User account: Admin
+ - Password: roywong (Allowed to change password)
+ - Allow admin user to assign admin rights to other users
+ 
+
+Metaphysics Engines
+Core Engine - All readings and calculations to use this as the basis for calculations
+-------------------------------------------------------------------------------------
+Calculate the 60 JiaZi Elements using profile information:
+The 60 Jiazi (Sexagenary) cycle is calculated by pairing the 10 Heavenly Stems with the 12 Earthly Branches in a sequential, parallel loop. Because both lists advance by one step every time, and both stems and branches must always share the same Yin/Yang polarity, the cycle produces exactly 60 unique combinations before resetting.  Here is the exact formula, structure, and programming logic used to calculate them.
+
+1. The Core Components & Polarities
+Every element in both sequences has an assigned mathematical index (1 to 12) and a fixed Yin or Yang polarity.
+Index   10 Heavenly Stems (S)   Polarity    12 Earthly Branches (B)	  Polarity    Zodiac Animal
+1       甲 (Jiǎ) - Yang Wood	    Yang        子 (Zǐ) - Water            Yang       Rat
+2       乙 (Yǐ) - Yin Wood	    Yin	        丑 (Chǒu) - Earth          Yin        Ox
+3       丙 (Bǐng) - Yang Fire	Yang        寅 (Yín) - Wood            Yang       Tiger
+4       丁 (Dīng) - Yin Fire	    Yin	        卯 (Mǎo) - Wood            Yin        Rabbit
+5       戊 (Wù) - Yang Earth	    Yang        辰 (Chén) - Earth          Yang       Dragon
+6       己 (Jǐ) - Yin Earth	    Yin	        巳 (Sì) - Fire             Yin        Snake
+7       庚 (Gēng) - Yang Metal	Yang        午 (Wǔ) - Fire             Yang       Horse
+8       辛 (Xīn) - Yin Metal	    Yin	        未 (Wèi) - Earth	           Yin        Goat
+9	    壬 (Rén) - Yang Water	Yang        申 (Shēn) - Metal          Yang       Monkey
+10      癸 (Guǐ) - Yin Water	    Yin	        酉 (Yǒu) - Metal	           Yin        Rooster
+11      —                       —           戌 (Xū) - Earth	           Yang       Dog
+12      —                       —           亥 (Hài) - Water	           Yin        Pig
+
+2. The Mathematical Sequence Formula
+To determine which specific combination represents any sequence number (N) from 1 to 60, use the modulo (remainder) formula:
+    Stem Index (S)    =    ((N-1)(mod10))+1
+    Branch Index (B)  =    ((N-1)(mod12))+1
+
+Example Calculation: Find the 11th Element (N = 11)
+    Find Stem (S)   :   (((11 - 1) (mod{10}) + 1 = (10 (mod(10)) + 1 = 0 + 1 = 1 (甲 - Jiǎ)
+    Find Branch (B) :   (((11 - 1) (mod{12}) + 1 = (10 (mod(12)) + 1 = 10 + 1 = 11 (戌 - Xū)
+Result: The 11th pillar is 甲戌 (Jiǎ Xū) / Wood Dog.
+
+3. How the 60 Combinations are Generated
+Because 10 and 12 are both even numbers, their Least Common Multiple (LCM) is 60. This mathematical property ensures that Yang Stems only ever pair with Yang Branches, and Yin Stems only ever pair with Yin Branches. You will never see a combination like 甲丑 (Yang Wood + Yin Ox).
+The generation cycles through like gears:
+Pillar 1: Stem 1 + Branch 1 = 甲子 (Jiǎ Zǐ)
+Pillar 2: Stem 2 + Branch 2 = 乙丑 (Yǐ Chǒu)
+...
+Pillar 10: Stem 10 + Branch 10 = 癸酉 (Guǐ Yǒu)
+Pillar 11: Stem 1 + Branch 11 = 甲戌 (Jiǎ Xū) (Stems loop back to 1)
+Pillar 12: Stem 2 + Branch 12 = 乙亥 (Yǐ Hài)
+Pillar 13: Stem 3 + Branch 1 = 丙子 (Bǐng Zǐ) (Branches loop back to 1)
+...
+Pillar 60: Stem 10 + Branch 12 = 癸亥 (Guǐ Hài) (Both loop finish simultaneously)
+
+4. How to Calculate the Elements from a Gregorian Year
+If you want to find the 60 JiaZi pillar for a specific calendar year (e.g., your birth year 1976), use this formula adjusted for the historical calendar anchor:
+    Stem Index     =    ((Year-3)(mod10))
+    Branch Index   =    ((Year-3)(mod12))
+
+(If the result is 0, it means it is the last index: Stem 10 or Branch 12).
+
+Sample Calculation for 1976:
+Stem: (1976 - 3) (mod 10) = 1973 (mod 10) = 3 (Index 3 = 丙 - Bǐng)
+Branch: (1976 - 3) (mod 12) = 1973 (mod 12) = 5 (Index 5 = 辰 - Chén)
+Result: 1976 is the year of 丙辰 (Bǐng Chén) / Fire Dragon.
+
+All Engines to provide Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+1) Name Analysis
+   - Deep analysis with explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Elemental reading
+   - Five Grids
+   - English name analysis
+   - Chinese name analysis
+
+2) Ming Li
+   - BaZi Natal Chart
+     i) Calculate ahd show the BaZi Natal chart showing all heavenly, earthly, and hidden stems with Deep analysis with characteristics, explanation and description of 
+        findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+     ii) Calculate Day Master with Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x 
+         Negatives, 3 x Cautions
+     iii) Macro Structure
+     iv) Life Milestones (Expected Life Expectancy, Children Affinity, Primary and Secondary Marriage window)
+     v) Identify suitable colour and unsuitable colours with Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3
+        x Positives, 3 x Negatives, 3 x Cautions
+   - Zodiac
+     i) Calculate Zodiac, allies, secret allies, zodiac clashes with Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x 
+        Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+     ii) Current year and following 3 years Outlook Breakdown with annual Deep analysis with characteristics, explanation and description of findings, traits of 
+         findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - 4 Year Start and Luck Outlook
+     i) Current year and following 3 years outlook
+     ii) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Da Yun (10 Year Luck Cycle)
+     i) Calculate Da Yun with following:
+        The universal formula to calculate the exact starting age of a BaZi 10-year luck cycle relies on converting the time gap (G) between the birth moment and the solar term      
+        node into years, months, and days using the 3-day time-scaling ratio.
+        1. The Core Conversion Metrics
+           The traditional formula maps solar calendar movements to human life spans using these precise mathematical ratios:
+               3 Days of Time Gap (G) = 1 Year of Life (360 days)
+               1 Day of Time Gap (G) = 4 Months of Life (120 days)
+               1 Hour of Time Gap (G) = 5 Days of Life
+               1 Minute of Time Gap (G) = 2 Hours of Life
+        2. The Step-by-Step Formula
+           Step A: Calculate Total Time Gap in Hours (Ghours)
+               Find the absolute difference in time between the birth time and the target solar term node:
+                  Ghours = Total Hours + (Total Minutes/60)
+           Step B: Convert Time Gap to "Life Days" Dlife
+               Multiply the total hours by 5 to find how many standard days of life the gap represents:
+                  Dlife = Ghours x 5
+           Step C: Breakdown into Years, Months, and Days
+               To translate Dlife into a human age format (Years, Months, Days)
+                  - Years: [Dlife / 360]
+                  - Remaining Days: R = Dlife (mod360)
+                  - Months: [R / 30]
+                  - Days: R (mod30)
+               Note: [...] means round down to the nearest whole integer).
+        3. Application to Your Chart (Example with 7 September 1976, 09:33am, Singapore, Male)
+           Your exact time gap until Bailu was 10 hours and 55 minutes
+           Step A: 
+               Calculate Ghours: 10 + (55/60) = 10.916 hours
+           Step B: 
+               Calculate Dlife: 10.9167 x 5 = 54.58 days of life
+           Step c:
+               Convert to Age:
+               - Years: [54.58/360] = 0 Years
+               - Remaining Days (R): 54.58 (mod360) = 54.58 days
+               - Months: [54.58 (mod30) = 1 Month
+               - Days: 54.58 (mod30) = 24.58 ~ 25 Days
+           Your exact BaZi starting age is 0 Years, 1 Month, and 25 Days from birth. Adding this duration directly to your birth date (7 September 1976) brings your transition
+           day to 2 October 1976, repeating on that approximate date every 10 years.
+      ii) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions for each 
+          cycle for cycles starting from current age year until 100 years old.
+   - Zi Wei Dou Shu
+     i) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Qi Men Dun Jia
+     i) Calculate Natal Matrix with accurate positioning and direction and full details indicated in the matrix chart
+     ii) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+3) Bu Shi
+   - I Ching
+     i) Show Hexagram
+     ii) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Ze Ri
+     i) Allow user to choose date for evaluation and show deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x 
+        Positives, 3 x Negatives, 3 x Cautions
+     ii) Allow user to input date and choose from drop down list with options (Auspicious, Highly Auspicious, Extremely Auspicious). Clickin gon "Find Auspicious Dates" to list  
+        out all the dates as selected.  Auspicious dates as green, Highly Auspicious dates as orange and Extremely Auspicious dates as purple
+4) Feng Shui
+   - Luan Tou
+     i) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Ba Zhai Compass School
+     i) Calculate Kua and provide deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 
+        3 x Cautions
+     ii) Allow user to choose door facing direction and display deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 
+        3 x Positives, 3 x Negatives, 3 x Cautions based on the direction chosen as compared to your JiaZi
+5) Xiang Shu
+   - Mian Xiang
+     i) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Shou Xiang
+     i) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+6) The 3 Styles
+   - Da Liu Ren
+     i) Macro Human Affairs and Tactics
+        - Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+     ii) Tai Yi Shen Shu
+        - Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+7) Western and Global Metaphysics
+   - Numerology
+     i) Calculate Life Path
+     ii) Show compatible and confliction numbers
+     iii) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+   - Astrology
+     i) Calculate Sun Sign
+     ii) Show compatible and conflicting star signs
+     iii) Sun Sign Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+     iv) Astrology Matrix Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x 
+        Cautions
+     v) Current year and following 3 years Astrological Outlook Breakdown with annual Deep analysis with characteristics, explanation and description of findings, traits of 
+        findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+
+Life Partner Section
+1) Calculate compatibility between individual and life partner profile only
+2) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+3) Full analysis of Life Partner based on profile and display to follow same details as individual
+
+Business Partner Section
+1) Calculate compatibility between individual and Business partner profile only
+2) Deep analysis with characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+3) Full analysis of Business Partner based on profile and display to follow same details as individual
+
+Landing Page
+1) Summary Cards for Individual, life partner, and business partner to calculate current day highlights based on relevant profiles with mixing and to include Deep analysis with
+   characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions.  Include compatibility percentage 
+   in the life and business partner summary cards
+2) Metaphysical Suggestions
+   i) Vehicle Plate Evaluation
+      - User to input sequence to be checked
+      - Include alphabets to be checked with Deep analysis with compatibility characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x
+        Positives, 3 x Negatives, 3 x Cautions
+      - Include option for shared vehicle number with life partner only to be checked with Deep analysis with compatibility characteristics, explanation and description of 
+        findings, traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+      - Ensure shared vehicle number is checked and referenced with both life partner and individual
+	  - Element level analysis of number and alphabets as compared to individual or shared with life partner
+   ii) Vehicle plate number generator
+      - Option for 3 digit, 4 digit and 5 digit generator
+      - Number generated to be checked with Deep analysis with compatibility characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x
+        Positives, 3 x Negatives, 3 x Cautions and to guarantee minimum of 95% compatibility
+      - Include option of shared number with life partner to be generated.  Ensure this is checked and referenced with both life partner and individual
+      - Ensure shared vehicle number is checked and referenced with both life partner and individual
+   iii) Mobile Number Evaluation
+      - User to input sequence to be checked with Deep analysis with compatibility characteristics, explanation and description of findings, traits of findings, 3 x Highlights,
+        3 x Positives, 3 x Negatives, 3 x Cautions
+      - Include option for shared number with life partner only to be checked with Deep analysis with compatibility characteristics, explanation and description of findings,
+        traits of findings, 3 x Highlights, 3 x Positives, 3 x Negatives, 3 x Cautions
+      - Ensure shared Mobile number is checked and referenced with both life partner and individual
+   iv) Mobile number generator
+      - Option for 4 digit and 8 digit generator
+      - 8 digit number generator to have default prefix of 9 with option to change to prefix 8
+      - Number generated to be checked with Deep analysis with compatibility characteristics, explanation and description of findings, traits of findings, 3 x Highlights, 3 x
+        Positives, 3 x Negatives, 3 x Cautions and to guarantee minimum of 95% compatibility
+      - Include option of shared number with life partner to be generated.  Ensure this is checked and referenced with both life partner and individual
+      - Ensure shared number is checked and referenced with both life partner and individual
+	  - Element level analysis of number as compared to individual or shared with life partner
+   v) Singapore Pools 4D
+      - Based on historical Singapore Pools 4D results, suggest 3 x possible 4D numbers that may open for that particular draw.
+	  - Provide prediction for following 3 draws based on actual draw dates
+	  - Show past 3 results and highlight suggested numbers and actual results if suggested numbers appear in the predicted draw.  Highlight number green if it appears in
+        same sequence in actual draw and in orange if appear in different permutation
+   vi) Singapore Pools ToTo
+      - Based on historical Singapore Pools ToTo results, suggest 3 x possible sets of Toto numbers that may open for that particular draw.
+	  - Provide prediction for following 3 draws based on actual draw dates
+	  - Show past 3 results and highlight suggested numbers and actual results if suggested numbers appear in the predicted draw.  Highlight number green if it appears

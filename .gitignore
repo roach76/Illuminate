@@ -1,0 +1,4 @@
+node_modules/
+tests/toc_probe_out/
+*.log
+.DS_Store

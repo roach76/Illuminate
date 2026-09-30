@@ -1,0 +1,16 @@
+{
+  "name": "illuminate",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Illuminate - a client-side Chinese metaphysics + Western astrology PWA (Singapore Pools 4D/TOTO prediction, BaZi, Zi Wei Dou Shu, Qi Men Dun Jia, Feng Shui, Western astrology, and more). Pure client-side JS, no backend framework required to run - a tiny local static file server is enough (see serve_illuminate.py / start_illuminate.bat).",
+  "scripts": {
+    "serve": "python3 serve_illuminate.py",
+    "test": "bash tests/run_all_tests.sh"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.47.0"
+  }
+}
