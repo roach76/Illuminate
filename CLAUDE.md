@@ -49,7 +49,7 @@ start_illuminate.bat             Windows convenience launcher (calls the same se
 test data.xlsx                   Reference test-case dataset (see standing instruction #1)
 UPDATE_NOTES_AND_INSTRUCTIONS.md Full dated changelog/history — READ THIS FIRST for project context
 package.json                     devDependency (jsdom) + `npm test` wiring for the regression suite
-tests/                           Regression test suite (106 files, ~1950 checks) — see tests/README.md
+tests/                           Regression test suite (107 files, ~1973 checks) — see tests/README.md
 CLAUDE.md                        This file
 SESSION_HISTORY_SUMMARY.md       Condensed narrative summary of the engagement to date
 ```
@@ -69,7 +69,7 @@ npm install        # installs jsdom (the only hard dependency; playwright is opt
 npm test           # or: bash tests/run_all_tests.sh
 ```
 
-Expected baseline at the time of this migration: **1950 checks, 0 failed** across 106 test files (2 of
+Expected baseline at the time of this migration: **1973 checks, 0 failed** across 107 test files (2 of
 them — the Playwright/Chromium browser probes — report 0/0 unless `playwright` and a running local
 server are set up; see `tests/README.md`).
 

@@ -944,6 +944,12 @@ function stripDetailsForPdf(html) {
     .replace(/<span class="section-chevron">[^<]*<\/span>/g, '');
 }
 
+// Shared by every profile's PDF (main, Life/Business Partner, Children) so the section is identical
+// in heading and format to what the Reading tab shows - see buildProfilePdfHTML.
+function detailedReadingSectionHTML(p) {
+  return wrapSectionCollapsible(`<h2 class="section-header">${bt('Detailed Reading','详细解读')}</h2><article class="reading">${generateDetailedReading(p)}</article>`);
+}
+
 function buildProfilePdfHTML(prefix) {
   const prof = getProfileByPrefix(prefix);
   const p = prof ? getProfileData(prof) : getProfileData();
@@ -1065,8 +1071,18 @@ function buildProfilePdfHTML(prefix) {
       // directly here and inserted right after the "Details Summary" section (already part of the
       // 'core' tab pulled in above) and before the compatibility summaries appended below - exactly the
       // placement asked for.
-      bodyHTML += wrapSectionCollapsible(`<h2 class="section-header">${bt('Detailed Reading','详细解读')}</h2><article class="reading">${generateDetailedReading(p)}</article>`);
+      bodyHTML += detailedReadingSectionHTML(p);
       bodyHTML += compatSections;
+    } else {
+      // ENHANCEMENT (reported: "include a reading for all profiles following the reading format from
+      // the reading tab"): the Detailed Reading section above was only appended inside the
+      // prefix === 'i' branch, so every Life Partner, Business Partner (core + additional) and Child
+      // PDF - including each one's file in the "Export All Profiles (ZIP)" - silently omitted it, even
+      // though the Reading tab itself (renderDetailedReadingTab) already supports every one of those
+      // profiles via its selector. generateDetailedReading(p) is self-contained per profile, so the
+      // identical section is now appended to every other profile's PDF as well, same format and
+      // heading as the main profile's.
+      bodyHTML += detailedReadingSectionHTML(p);
     }
   } finally {
     pdfExportMode = false;

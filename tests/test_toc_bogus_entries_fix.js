@@ -69,7 +69,7 @@ check(/compatSections \+= wrapSectionCollapsible\(`<h2 class="section-header">\$
   'the Business Partner Compatibility section is now wrapped with wrapSectionCollapsible');
 check(/bodyHTML \+= wrapSectionCollapsible\(familyHTML\);/.test(appSrc), 'the Family Summary section is now wrapped with wrapSectionCollapsible');
 check(/bodyHTML \+= wrapSectionCollapsible\(occHTML\);/.test(appSrc), 'the Household Occupants section is now wrapped with wrapSectionCollapsible');
-check(/bodyHTML \+= wrapSectionCollapsible\(`<h2 class="section-header">\$\{bt\('Detailed Reading'/.test(appSrc), 'the Detailed Reading section is now wrapped with wrapSectionCollapsible');
+check(/function detailedReadingSectionHTML\(p\) \{\s*return wrapSectionCollapsible\(`<h2 class="section-header">\$\{bt\('Detailed Reading'/.test(appSrc), 'the Detailed Reading section is now wrapped with wrapSectionCollapsible (via the shared detailedReadingSectionHTML helper)');
 
 // --- Behavioral: build the real PDF HTML for a profile with a partner, business partner, and a child,
 // and confirm none of the previously-reported garbled snippets appear anywhere in it, while every real
