@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-10-18T23:49:10.555Z",
+  "lastUpdated": "2026-10-19T18:16:27.571Z",
   "source": "https://check4d.co/sgpools/",
   "fourD": [
     {
@@ -166571,6 +166571,20 @@
     }
   ],
   "toto": [
+    {
+      "isoDate": "2026-10-19",
+      "date": "Mon 19 Oct 2026",
+      "drawNo": "4227",
+      "winning": [
+        2,
+        15,
+        19,
+        20,
+        27,
+        30
+      ],
+      "additional": 5
+    },
     {
       "isoDate": "2026-10-15",
       "date": "Thu 15 Oct 2026",
