@@ -209,3 +209,17 @@ strong { color: inherit; }
 .export-readiness-item { font-size: 11px; color: var(--muted); padding: 3px 0; }
 .export-readiness-item.missing { color: var(--warning); }
 .export-readiness-allset { font-size: 11px; color: var(--success); font-weight: 700; }
+
+/* Tooltips (hover / keyboard focus / tap): any element with a data-tip attribute shows its text in the
+   single floating #appTooltip element - see initTooltips() in app.js. Screen-only, never exported. */
+[data-tip] { cursor: help; }
+[data-tip]:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.tip-u { text-decoration: underline dotted; text-underline-offset: 3px; }
+.app-tooltip {
+  position: fixed; z-index: 3000; left: 0; top: 0; max-width: min(340px, calc(100vw - 16px));
+  padding: 8px 10px; border-radius: 8px; background: #20273b; color: #fff;
+  font-size: 11px; line-height: 1.5; white-space: pre-line; box-shadow: 0 6px 20px rgba(0,0,0,.28);
+  pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .12s ease;
+}
+.app-tooltip.show { opacity: 1; visibility: visible; }
+.tip-i { font-size: 9px; color: var(--muted); font-weight: 400; margin-left: 2px; }

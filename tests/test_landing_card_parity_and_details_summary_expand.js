@@ -89,11 +89,14 @@ vm.runInContext(`
   var __landingPartner = generateSummaryCardHTML(__pp, __p, false, false, 'p');
 `, sandbox);
 
-const chartI = vm.runInContext('__chartI', sandbox);
+// Tooltips (data-tip attributes) and their (i) markers are hover-only extras that legitimately mention other
+// tiles' names in their text; strip them so these ORDER checks look only at the visible tile labels.
+const stripTips = (h) => h.replace(/\sdata-tip="[^"]*"/g, '').replace(/<span class="tip-i"[^>]*>[^<]*<\/span>/g, '');
+const chartI = stripTips(vm.runInContext('__chartI', sandbox));
 const chartP = vm.runInContext('__chartP', sandbox);
 const chartC = vm.runInContext('__chartC', sandbox);
-const landingMain = vm.runInContext('__landingMain', sandbox);
-const landingPartner = vm.runInContext('__landingPartner', sandbox);
+const landingMain = stripTips(vm.runInContext('__landingMain', sandbox));
+const landingPartner = stripTips(vm.runInContext('__landingPartner', sandbox));
 
 // --- Requirement 5: Details Summary expanded by default, all 4 tabs, all profile types. ---
 // renderSystemChart's returned string only carries the CORE tab's content directly (tabBarHTML embeds

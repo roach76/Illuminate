@@ -595,6 +595,7 @@ function updateStaticLanguage() {
     if (!(id in STATIC_UI_EN)) STATIC_UI_EN[id] = el.textContent; // capture original English once
     el.textContent = isZh ? STATIC_UI_ZH[id] : STATIC_UI_EN[id];
   });
+  if (typeof refreshStaticTips === 'function') refreshStaticTips(); // tooltips on icon-only controls follow the language too
 }
 
 // BUG FIX (reported: "unable to login when an existing account exist" and, separately, "also unable

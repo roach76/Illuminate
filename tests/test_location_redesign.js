@@ -122,7 +122,8 @@ check(u.partner && u.partner.englishFirstName === 'Tina' && typeof u.partner.bir
 // Gregorian Birth tile as a 3rd line, so this test now checks for the value there instead of a separate
 // "Longitude / Timezone" labelled tile.
 vm.runInContext("go('chart'); switchChartTab('i','core'); renderAllViews();", sandbox);
-const overviewHTML = vm.runInContext("document.getElementById('chart').innerHTML", sandbox);
+// Tooltip attributes / (i) markers are hover-only extras, not part of the tile's visible content.
+const overviewHTML = vm.runInContext("document.getElementById('chart').innerHTML", sandbox).replace(/\sdata-tip="[^"]*"/g, '').replace(/<span class="tip-i"[^>]*>[^<]*<\/span>/g, '');
 check(new RegExp(`103\\.82`).test(overviewHTML), 'the profile summary\'s Gregorian Birth tile shows the correct auto-derived longitude value');
 check(/Gregorian Birth[\s\S]{0,200}103\.82/.test(overviewHTML) || /阳历出生[\s\S]{0,200}103\.82/.test(overviewHTML),
   'the longitude/timezone value is folded into the Gregorian Birth tile itself, not a separate tile');

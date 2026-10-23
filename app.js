@@ -23,6 +23,129 @@ function renderRatingLegend(tierLabelsArray) {
   return `<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)">${items}</div>`;
 }
 
+// ENHANCEMENT (reported: "there should be a tooltip to show the details of the years when hovered over
+// them in the Da Yun. Look at the whole app and implement tooltips where relevant information can be
+// shown"): one shared tooltip mechanism for the whole app. Any element carrying a `data-tip` attribute
+// (built with tipAttr() below) shows its text in a single floating #appTooltip on mouse hover, keyboard
+// focus (tabindex="0" is added so it is reachable), or tap on touch screens. Screen-only by design: the
+// attributes are stripped from PDFs by stripDetailsForPdf, and anything that is actual DATA rather than a
+// gloss (the Da Yun year-by-year detail) is ALSO written visibly into the PDF - see renderSystemChart.
+function tipAttr(text) {
+  if (!text) return '';
+  return ` data-tip="${escapeHtml(String(text)).replace(/\r?\n/g, '&#10;')}" tabindex="0"`;
+}
+function tipTier(t) { return tipAttr(bt(t.en, t.zh)); }
+// Small (i) marker appended to labels that carry a tooltip, so the tip is discoverable; removed from PDFs.
+const TIP_ICON_HTML = '<span class="tip-i" aria-hidden="true"> ⓘ</span>';
+// Plain-language glossary for the headline facts shown on the overview / summary / key-facts tiles. Looked
+// up by the tile's own (already-translated) label, so the tile helpers need no per-call changes.
+const SYSTEM_GLOSS = [
+  { en: 'Gregorian Birth', zh: '阳历出生', tipEN: 'Your birth date and local clock time. Birth longitude and time zone are used to correct it to true solar time for the BaZi and Zi Wei charts.', tipZH: '您的出生日期与当地钟表时间。出生经度与时区用于校正为真太阳时，供八字与紫微排盘使用。' },
+  { en: 'Lunar Birth', zh: '农历出生', tipEN: 'The same birth moment on the Chinese lunisolar calendar, used by Zi Wei Dou Shu and Bone Weight.', tipZH: '同一出生时刻对应的农历日期，供紫微斗数与称骨使用。' },
+  { en: 'Day Master', zh: '日主', tipEN: 'The Heavenly Stem of your Day Pillar - the "self" in BaZi. Every Ten God and Useful God (用神) in your chart is measured relative to it.', tipZH: '您日柱的天干——八字中代表「自己」。命盘里的每个十神与用神，都以它为基准来衡量。' },
+  { en: 'BaZi Day Master', zh: '八字日主', tipEN: 'The Heavenly Stem of your Day Pillar - the "self" in BaZi. Every Ten God and Useful God (用神) in your chart is measured relative to it.', tipZH: '您日柱的天干——八字中代表「自己」。命盘里的每个十神与用神，都以它为基准来衡量。' },
+  { en: 'Bone Weight', zh: '骨重', tipEN: 'Cheng Gu (称骨), a traditional fate-weighing method: values for your birth year, month, day and hour are added. A heavier total is traditionally read as an easier life path.', tipZH: '称骨算命：把出生年、月、日、时各自的重量相加。传统上总重越重，被视为人生道路越安稳。' },
+  { en: 'Da Yun (Current Cycle)', zh: '大运（当前）', tipEN: 'Major Luck Cycles: ten-year periods, each governed by one Stem-Branch pillar. See the Da Yun table in the Timing tab - hover a row for its year-by-year detail.', tipZH: '大运：每十年由一组干支主导的运程。详见「时运」分页的大运表——将鼠标移到某一行即可查看逐年详情。' },
+  { en: 'Da Yun', zh: '大运', tipEN: 'Major Luck Cycles: ten-year periods, each governed by one Stem-Branch pillar. Hover a row in the Da Yun table for its year-by-year detail.', tipZH: '大运：每十年由一组干支主导的运程。将鼠标移到大运表的某一行即可查看逐年详情。' },
+  { en: 'Life Expectancy', zh: '预期寿命', tipEN: 'An indicative figure from this app\'s own chart heuristic - for reflection only, never a medical prediction.', tipZH: '依本应用自身命盘推算的参考数字——仅供反思，绝非医学预测。' },
+  { en: 'Numerology Life Path', zh: '生命数字', tipEN: 'A single number derived from your birth date that numerology uses to describe your life\'s main theme; the lucky number is derived from it.', tipZH: '由出生日期推算出的单一数字，数字命理以此描述人生主题；幸运号码由它衍生。' },
+  { en: 'Sun Sign', zh: '太阳星座', tipEN: 'The Western zodiac sign the Sun occupied at your birth.', tipZH: '您出生时太阳所在的西方黄道星座。' },
+  { en: 'I Ching Hexagram', zh: '易经本命卦', tipEN: 'The I Ching hexagram (one of 64) assigned to your birth chart.', tipZH: '您出生命盘所对应的易经卦象（六十四卦之一）。' },
+  { en: 'I Ching Natal Hexagram', zh: '易经本命卦', tipEN: 'The I Ching hexagram (one of 64) assigned to your birth chart.', tipZH: '您出生命盘所对应的易经卦象（六十四卦之一）。' },
+  { en: 'Zi Wei Life Palace', zh: '紫微命宫', tipEN: 'The Zi Wei Dou Shu palace (of 12) that holds your Life position - the starting point for reading the rest of that chart.', tipZH: '紫微斗数十二宫中安放「命」的宫位——解读该命盘其余部分的起点。' },
+  { en: 'QMDJ Life Palace', zh: '奇门命宫', tipEN: 'Your natal palace (1-9) on the Qi Men Dun Jia grid.', tipZH: '您在奇门遁甲九宫格中的本命宫位（1至9宫）。' },
+  { en: 'Ba Zhai Kua', zh: '八宅命卦', tipEN: 'Your Eight Mansions (Ba Zhai) Kua number. It places you in the East or West group, which sets your favourable and unfavourable directions.', tipZH: '您的八宅命卦数。它决定您属东四命或西四命，进而决定吉凶方位。' },
+  { en: 'Zodiac', zh: '生肖', tipEN: 'Your Chinese zodiac animal, with its three-harmony allies and its clashing sign.', tipZH: '您的生肖，及其三合盟友与相冲的生肖。' }
+];
+function glossTipAttr(label) {
+  if (!label) return '';
+  const plain = String(label).replace(/<[^>]+>/g, '').trim();
+  if (/^(Flying Star|飞星)/.test(plain)) return tipAttr(bt('Flying Star (玄空飞星): the star sitting in the centre palace for the year shown, with its nature. The yearly star moves each year across the property chart.', '玄空飞星：所示年份入中宫的飞星及其属性。流年飞星每年在宅运盘上移位。'));
+  const g = SYSTEM_GLOSS.find(x => x.en === plain || x.zh === plain);
+  return g ? tipAttr(bt(g.tipEN, g.tipZH)) : '';
+}
+// Ten God meanings shown when hovering a BaZi pillar's stem or hidden stems. Standard correspondences;
+// every label is relative to the Day Master.
+const TEN_GOD_MEANING = {
+  P: { en: 'same element and polarity as you - self, peers, friends and equal competitors.', zh: '与您五行、阴阳皆同——自身、同侪、朋友与对等的竞争者。' },
+  RW: { en: 'same element, opposite polarity - rivals and partners who share or compete for your resources.', zh: '五行相同、阴阳相反——分享或争夺您资源的对手与伙伴。' },
+  EG: { en: 'what you generate, same polarity - talent, ease, creativity and enjoyment.', zh: '您所生、阴阳相同——才华、从容、创造力与享受。' },
+  HO: { en: 'what you generate, opposite polarity - sharp expression, originality and defiance of rules.', zh: '您所生、阴阳相反——犀利的表达、独创性与不拘规则。' },
+  IW: { en: 'what you control, same polarity - opportunistic income, deals and investment.', zh: '您所克、阴阳相同——机会型收入、交易与投资。' },
+  DW: { en: 'what you control, opposite polarity - steady income, savings and practical management.', zh: '您所克、阴阳相反——稳定收入、储蓄与务实的管理。' },
+  '7K': { en: 'what controls you, same polarity - pressure, urgency, ambition and challenge.', zh: '克您者、阴阳相同——压力、紧迫、企图心与挑战。' },
+  DO: { en: 'what controls you, opposite polarity - authority, rules, status and recognition.', zh: '克您者、阴阳相反——权威、规范、地位与肯定。' },
+  IR: { en: 'what generates you, same polarity - unconventional learning, intuition and indirect support.', zh: '生您者、阴阳相同——非传统的学习、直觉与间接的扶助。' },
+  DR: { en: 'what generates you, opposite polarity - formal education, nurturing and dependable support.', zh: '生您者、阴阳相反——正规教育、呵护与可靠的扶助。' },
+  DM: { en: 'the Day Master itself - the "self" every other Ten God is measured from.', zh: '日主本身——所有其他十神的衡量基准。' }
+};
+function tenGodTip(god, extra) {
+  const m = TEN_GOD_MEANING[god.abbr];
+  return tipAttr(`${bt(god.en, god.cn)} (${god.abbr}): ${m ? bt(m.en, m.zh) : ''}${extra ? '\n' + extra : ''}`);
+}
+const ASPECT_MEANING = {
+  Conjunction: { en: 'the two planets act as one - their energies merge and intensify.', zh: '两颗行星合而为一——能量融合并增强。' },
+  Sextile: { en: 'a supportive link - opportunities that need a little effort to use.', zh: '顺畅的连结——有机会，但需稍加努力才能把握。' },
+  Square: { en: 'a tense link - friction that pushes growth through challenge.', zh: '紧张的连结——摩擦与挑战，推动成长。' },
+  Trine: { en: 'an easy, flowing link - natural talent and support.', zh: '顺畅流动的连结——天赋与自然的助力。' },
+  Opposition: { en: 'a polarity - two sides pulling against each other, asking for balance.', zh: '两极对立——两股力量相互拉扯，需要取得平衡。' }
+};
+
+// Single floating tooltip element, shared by every [data-tip] element in the app (event delegation, so
+// it also covers content rendered later). Hover on desktop, focus for keyboard users, tap on touch.
+function initTooltips() {
+  if (typeof document === 'undefined' || document.getElementById('appTooltip')) return;
+  const tipEl = document.createElement('div');
+  tipEl.id = 'appTooltip'; tipEl.className = 'app-tooltip'; tipEl.setAttribute('role', 'tooltip');
+  document.body.appendChild(tipEl);
+  let current = null, hideTimer = null;
+  const hide = () => { current = null; tipEl.classList.remove('show'); if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } };
+  const place = (el) => {
+    const r = el.getBoundingClientRect(), vw = window.innerWidth || 800, vh = window.innerHeight || 600;
+    const tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+    let left = r.left + r.width / 2 - tw / 2;
+    left = Math.max(8, Math.min(left, vw - tw - 8));
+    let top = r.bottom + 8;
+    if (top + th > vh - 8 && r.top - th - 8 >= 8) top = r.top - th - 8;
+    tipEl.style.left = `${left}px`; tipEl.style.top = `${Math.max(8, top)}px`;
+  };
+  const show = (el) => {
+    const text = el.getAttribute('data-tip');
+    if (!text) return hide();
+    current = el; tipEl.textContent = text; tipEl.classList.add('show'); place(el);
+  };
+  const tipTarget = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const el = tipTarget(e); if (el) { if (el !== current) show(el); } else if (current) hide(); });
+  document.addEventListener('focusin', (e) => { const el = tipTarget(e); if (el) show(el); });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+  document.addEventListener('scroll', hide, true);
+  // Touch screens have no hover: a tap shows the tip for a few seconds (the tap itself still does whatever it
+  // normally does - nothing is prevented); tapping elsewhere hides it.
+  document.addEventListener('click', (e) => {
+    const noHover = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none)').matches;
+    if (!noHover) return;
+    const el = tipTarget(e);
+    if (!el) return hide();
+    // Touch browsers fire an emulated mouseover just before the click, so the tip may already be showing for
+    // this element - keep it (do not toggle it off); tapping elsewhere or waiting hides it.
+    if (el !== current) show(el);
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(hide, 5000);
+  });
+}
+// Static (index.html) controls whose purpose is not obvious from an icon alone get their tips here, so they
+// follow the active language like every other label. Called from initListeners and on every language switch.
+function refreshStaticTips() {
+  if (typeof document === 'undefined') return;
+  const set = (sel, en, zh) => document.querySelectorAll(sel).forEach(el => { el.setAttribute('data-tip', bt(en, zh)); el.setAttribute('tabindex', '0'); });
+  set('.btnExportPdf', 'Export this profile\'s full reading as a PDF.', '将此档案的完整解读导出为PDF。');
+  set('#langToggle', 'Switch the whole app between English and Chinese.', '在英文与中文之间切换整个应用。');
+  set('#btnEditPartner, #btnEditBiz', 'Edit this person\'s birth details and assets.', '编辑此人的出生资料与资产。');
+  set('#btnRemovePartner, #btnRemoveBiz', 'Remove this profile from your account (asks for confirmation).', '从您的账户移除此档案（会先要求确认）。');
+  set('#btnExportAllZip', 'Download every profile\'s PDF together as one ZIP file.', '将所有档案的PDF打包成一个ZIP文件下载。');
+}
+
 // ENHANCEMENT (this round): Flying Star (玄空飞星) result renderer - builds a 3x3 grid showing the
 // Period/Mountain/Facing star numbers for each palace, given a construction year and facing
 // direction entered via the standalone calculator in the Feng Shui section. This is a property-based
@@ -941,7 +1064,10 @@ function stripDetailsForPdf(html) {
     .replace(/<\/summary>/g, '</div>')
     // The chevron (▸) is a live-app toggle-state indicator with no meaning in a static, fully-expanded
     // PDF - removed rather than left showing a meaningless static arrow next to every section title.
-    .replace(/<span class="section-chevron">[^<]*<\/span>/g, '');
+    .replace(/<span class="section-chevron">[^<]*<\/span>/g, '')
+    // Tooltips are screen-only: drop their data-tip/tabindex attributes and the (i) markers from the export.
+    .replace(/\sdata-tip="[^"]*"/g, '').replace(/\stabindex="0"/g, '')
+    .replace(/<span class="tip-i"[^>]*>[^<]*<\/span>/g, '').replace(/ class="tip-u"/g, '');
 }
 
 // Shared by every profile's PDF (main, Life/Business Partner, Children) so the section is identical
@@ -6430,7 +6556,8 @@ function generateNatalFullChartHTML(p) {
   const rows = NATAL_ASPECT_PLANET_ORDER.map(k => {
     const info = PLANET_INFO_FULL[k];
     const sign = natalChart[k].sign;
-    return `<tr>
+    const planetTip = tipAttr(bt(`${info.en} in ${sign.en}${pointHouses ? `, house ${pointHouses[k]} (${HOUSE_LIFE_AREAS[pointHouses[k]].en})` : ''}: ${info.themeEN}.`, `${info.zh}在${sign.zh}${pointHouses ? `，第${pointHouses[k]}宫（${HOUSE_LIFE_AREAS[pointHouses[k]].zh}）` : ''}：${info.themeZH}。`));
+    return `<tr${planetTip}>
       <td style="padding:4px 8px;border:1px solid #eee;font-size:11px"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:${info.color};color:#fff;font-size:11px;font-weight:bold;margin-right:6px">${info.glyph}</span>${bt(info.en, info.zh)}</td>
       <td style="padding:4px 8px;border:1px solid #eee;font-size:11px;font-weight:600">${bt(sign.en, sign.zh)}</td>
       ${pointHouses ? `<td style="padding:4px 8px;border:1px solid #eee;font-size:11px;text-align:center">${pointHouses[k]}</td>` : ''}
@@ -6449,7 +6576,9 @@ function generateNatalFullChartHTML(p) {
   const aspects = computeNatalAspectGrid(natalChart);
   const topAspectRows = aspects.slice(0, 8).map(a => {
     const pa = PLANET_INFO_FULL[a.a], pb = PLANET_INFO_FULL[a.b];
-    return `<tr>
+    const am = ASPECT_MEANING[a.name];
+    const aspectTip = am ? tipAttr(bt(`${pa.en} ${a.name} ${pb.en} (orb ${a.orbUsed.toFixed(1)}°): ${am.en}`, `${pa.zh}${a.nameZh}${pb.zh}（容许度${a.orbUsed.toFixed(1)}°）：${am.zh}`)) : '';
+    return `<tr${aspectTip}>
       <td style="padding:4px 8px;border:1px solid #eee;font-size:11px">${bt(pa.en, pa.zh)}</td>
       <td style="padding:4px 8px;border:1px solid #eee;font-size:11px;text-align:center">${bt(a.name, a.nameZh)}</td>
       <td style="padding:4px 8px;border:1px solid #eee;font-size:11px">${bt(pb.en, pb.zh)}</td>
@@ -6560,6 +6689,32 @@ const DAYUN_PALACE_LABEL = {
 const DAYUN_ELEM_EN = ['Wood', 'Fire', 'Earth', 'Metal', 'Water'];
 const DAYUN_ELEM_ZH = ['木', '火', '土', '金', '水'];
 
+// Year-by-year detail for ONE 10-year Da Yun cycle, used for the Da Yun table's tooltip (and written
+// visibly into the PDF). Built only from existing verified pieces: computeYearPillar (Liu Nian),
+// getTenGod, the Useful God verdict from computeDetailedReadingAnalysis, and SIX_CLASH against the four
+// natal branches. Returns { head: 'title\ninfo\nlegend', lines: [one string per year] }.
+function buildDaYunCycleDetail(p, dy, usefulGod) {
+  const dm = p.bazi.dayStemIdx, nowY = new Date().getFullYear();
+  const natal = [[p.bazi.yearBranchIdx, 'Year', '年'], [p.bazi.monthBranchIdx, 'Month', '月'], [p.bazi.dayBranchIdx, 'Day', '日'], [p.bazi.hourBranchIdx, 'Hour', '时']];
+  const pillar = `${stemCN[dy.stemIdx]}${branchCN[dy.branchIdx]}`;
+  const cyGod = getTenGod(dm, dy.stemIdx);
+  const cyFav = usefulGod.favourable.includes(computeElementIdxFromStemIdx(dy.stemIdx));
+  const head = [
+    bt(`Da Yun ${pillar} · ages ${dy.age}-${dy.age + 9} · ${dy.calendarYearStart}-${dy.calendarYearStart + 9}`, `大运${pillar} · ${dy.age}至${dy.age + 9}岁 · ${dy.calendarYearStart}至${dy.calendarYearStart + 9}年`),
+    bt(`Cycle stem is ${cyGod.en} (${cyGod.cn}); rated ${dy.rating.tierEN}; its element is ${cyFav ? 'favourable' : 'unfavourable'} per your Useful God (用神).`, `大运天干为「${cyGod.cn}」；评级「${dy.rating.tierZH}」；其五行依您的用神属${cyFav ? '有利' : '不利'}。`),
+    bt('Each year: Liu Nian pillar · Ten God to your Day Master · ✓ favourable / ✗ unfavourable element', '逐年：流年干支 · 相对日主的十神 · ✓ 五行有利 / ✗ 五行不利')
+  ].join('\n');
+  const lines = [];
+  for (let i = 0; i < 10; i++) {
+    const y = dy.calendarYearStart + i, ln = computeYearPillar(y), g = getTenGod(dm, ln.stemIdx);
+    const fav = usefulGod.favourable.includes(computeElementIdxFromStemIdx(ln.stemIdx));
+    const clashes = natal.filter(n => SIX_CLASH[ln.branchIdx] === n[0]);
+    const clashTxt = clashes.length ? bt(` · clashes ${clashes.map(n => n[1]).join('/')}`, ` · 冲${clashes.map(n => n[2]).join('/')}支`) : '';
+    lines.push(`${y}${y === nowY ? ' ◀' : ''} (${bt('age', '岁')} ${dy.age + i}) ${stemCN[ln.stemIdx]}${branchCN[ln.branchIdx]} · ${bt(g.en, g.cn)} · ${fav ? '✓' : '✗'}${clashTxt}`);
+  }
+  return { head, lines };
+}
+
 function describeDaYunAnnualYear(p, yd) {
   const pillar = `${stemCN[yd.liuNian.stemIdx]}${branchCN[yd.liuNian.branchIdx]}`;
   const god = yd.god, fam = DAYUN_GOD_FAMILY[god.abbr], F = DAYUN_FAMILY_TEXT[fam];
@@ -6626,7 +6781,7 @@ function generateDaYunAnnualDeepReadingHTML(p) {
   return reading.years.map(yd => {
     const d = describeDaYunAnnualYear(p, yd);
     const good = yd.months.filter(m => m.score >= 1.5).length, caution = yd.months.filter(m => m.score < -1.5).length;
-    const strip = yd.months.map(m => `<span title="${m.year}-${String(m.month).padStart(2, '0')} ${bt(m.tier.en, m.tier.zh)}" style="display:inline-block;min-width:26px;text-align:center;margin:1px;padding:2px 3px;border-radius:6px;background:${m.tier.color};color:#fff;font-size:9px;font-weight:700">${m.month}<br>${bt(m.tier.abbr, m.tier.abbrZh)}</span>`).join('');
+    const strip = yd.months.map(m => `<span${tipAttr(d.monthLine(m))} style="display:inline-block;min-width:26px;text-align:center;margin:1px;padding:2px 3px;border-radius:6px;background:${m.tier.color};color:#fff;font-size:9px;font-weight:700">${m.month}<br>${bt(m.tier.abbr, m.tier.abbrZh)}</span>`).join('');
     return `<article class="reading">
       <span class="pill">${trPill(`${yd.year} Da Yun Annual Deep Reading`)}</span>
       <div style="display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap">
@@ -7249,7 +7404,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
   // wrapping many times into that narrow half instead of using the empty space beside it. An optional
   // `wide` flag lets a specific tile span both columns - used below for Flying Star only, the one tile
   // that actually sits alone in its row.
-  const overviewTile = (label, value, wide) => `<div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px${wide ? ';grid-column:span 2' : ''}"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">${label}</div><div style="font-size:13px;font-weight:700;color:var(--plum);line-height:1.4">${value}</div></div>`;
+  const overviewTile = (label, value, wide) => { const g = glossTipAttr(label); return `<div${g} style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px${wide ? ';grid-column:span 2' : ''}"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">${label}${g ? TIP_ICON_HTML : ''}</div><div style="font-size:13px;font-weight:700;color:var(--plum);line-height:1.4">${value}</div></div>`; };
   const artProfileOverview = `
     <article class="reading" style="border-top:none;padding-top:0">
       <div style="display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(135deg,#292c44,#4c3550);border-radius:14px;margin-bottom:12px">
@@ -7314,7 +7469,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
   // will find if they keep reading that same tab. Every row from the original single card is kept,
   // none dropped, none duplicated across cards.
   const bwTierForSummary = getBoneWeightTier(p.boneWeight.total);
-  const summaryRow = (label, value) => `<div style="padding:8px 10px;margin:4px 0;background:#f5f3ec;border-left:3px solid var(--gold);border-radius:0 6px 6px 0;font-size:12px"><strong style="color:var(--plum)">${label}:</strong> <span style="color:var(--ink)">${value}</span></div>`;
+  const summaryRow = (label, value) => { const g = glossTipAttr(label); return `<div${g} style="padding:8px 10px;margin:4px 0;background:#f5f3ec;border-left:3px solid var(--gold);border-radius:0 6px 6px 0;font-size:12px"><strong style="color:var(--plum)">${label}:</strong>${g ? TIP_ICON_HTML : ''} <span style="color:var(--ink)">${value}</span></div>`; };
   const artDetailsSummaryCore = `
     <h2 class="section-header" ${idAttr('detailssummary-core')}>${bt('Details Summary','详情摘要')}</h2>
     <article class="reading" style="padding-top:0">
@@ -7410,16 +7565,17 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
   const tg = computeAllTenGods(p.bazi);
   const elemCN = ['木','火','土','金','水'];
   const BRANCH_ELEM_IDX = [4,2,0,0,2,1,1,2,3,3,2,4]; // Zi..Hai -> Water,Earth,Wood,Wood,Earth,Fire,Fire,Earth,Metal,Metal,Earth,Water
-  function pillarCard(labelEN, labelCN, timeVal, stemIdx, branchIdx, stemTG, isDayPillar) {
+  function pillarCard(labelEN, labelCN, timeVal, stemIdx, branchIdx, stemTG, isDayPillar, palaceKey) {
     const stemElemIdx = Math.floor(stemIdx / 2);
     const branchAnimalIdx = branchIdx;
     const hiddenList = HIDDEN_STEMS_BY_BRANCH[branchIdx];
+    const palaceTip = palaceKey ? tipAttr(bt(DAYUN_PALACE_LABEL[palaceKey].en, DAYUN_PALACE_LABEL[palaceKey].zh)) : '';
     return `<div style="border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff">
-      <div style="background:#f4f4f4;text-align:center;padding:5px 2px;font-size:11px;color:var(--muted)">
+      <div${palaceTip} style="background:#f4f4f4;text-align:center;padding:5px 2px;font-size:11px;color:var(--muted)">
         <div style="font-weight:700;color:var(--ink)">${timeVal}</div>
         <div>${labelCN} ${labelEN}</div>
       </div>
-      <div style="text-align:center;padding:8px 4px;border-bottom:1px dashed var(--line)">
+      <div${tenGodTip(stemTG)} style="text-align:center;padding:8px 4px;border-bottom:1px dashed var(--line)">
         <div style="display:flex;justify-content:center;gap:4px;align-items:baseline">
           <span style="font-size:26px;font-weight:700;color:${isDayPillar ? 'var(--plum)' : 'var(--ink)'}">${stemCN[stemIdx]}</span>
           <span style="font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;background:${isDayPillar?'var(--gold)':'var(--goldsoft)'};color:${isDayPillar?'#fff':'var(--plum)'}">${stemTG.abbr}</span>
@@ -7434,7 +7590,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       <div style="padding:6px 4px">
         <div style="font-size:9px;color:var(--muted);text-align:center;margin-bottom:3px">${bt('Hidden Stems','藏干')}</div>
         ${hiddenList.map(hsi => { const htg = getTenGod(p.bazi.dayStemIdx, hsi); return `
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;padding:2px 4px;margin:2px 0;background:#f9f7f2;border-radius:4px">
+        <div${tenGodTip(htg, bt('A hidden stem: an element tucked inside the branch that still acts on the chart.', '藏干：藏于地支之内、仍对命局发挥作用的天干。'))} style="display:flex;justify-content:space-between;align-items:center;font-size:10px;padding:2px 4px;margin:2px 0;background:#f9f7f2;border-radius:4px">
           <span style="font-weight:700;color:var(--ink)">${stemCN[hsi]} ${stems[hsi].split(' ')[0]}</span>
           <span style="font-weight:700;color:var(--plum)">${htg.abbr} ${htg.cn}</span>
         </div>`; }).join('')}
@@ -7443,10 +7599,10 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
   }
   let daYunHTML = `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px">
-      ${pillarCard(bt('Hour','时'), bt('时','Hour'), (p.birthtime||'').slice(0,5), p.bazi.hourStemIdx, p.bazi.hourBranchIdx, tg.hourStem, false)}
-      ${pillarCard(bt('Day','日'), bt('日','Day'), String(Number((p.birthdate||'').split('-')[2])), p.bazi.dayStemIdx, p.bazi.dayBranchIdx, tg.dayStem, true)}
-      ${pillarCard(bt('Month','月'), bt('月','Month'), String(Number((p.birthdate||'').split('-')[1])), p.bazi.monthStemIdx, p.bazi.monthBranchIdx, tg.monthStem, false)}
-      ${pillarCard(bt('Year','年'), bt('年','Year'), (p.birthdate||'').split('-')[0], p.bazi.yearStemIdx, p.bazi.yearBranchIdx, tg.yearStem, false)}
+      ${pillarCard(bt('Hour','时'), bt('时','Hour'), (p.birthtime||'').slice(0,5), p.bazi.hourStemIdx, p.bazi.hourBranchIdx, tg.hourStem, false, 'hour')}
+      ${pillarCard(bt('Day','日'), bt('日','Day'), String(Number((p.birthdate||'').split('-')[2])), p.bazi.dayStemIdx, p.bazi.dayBranchIdx, tg.dayStem, true, 'day')}
+      ${pillarCard(bt('Month','月'), bt('月','Month'), String(Number((p.birthdate||'').split('-')[1])), p.bazi.monthStemIdx, p.bazi.monthBranchIdx, tg.monthStem, false, 'month')}
+      ${pillarCard(bt('Year','年'), bt('年','Year'), (p.birthdate||'').split('-')[0], p.bazi.yearStemIdx, p.bazi.yearBranchIdx, tg.yearStem, false, 'year')}
     </div>
     <div class="calc-box" style="font-size:11px;margin-top:8px">${bt('DM = Day Master · EG = Eating God · HO = Hurting Officer · DW/IW = Direct/Indirect Wealth · DO/7K = Direct Officer/Seven Killings · DR/IR = Direct/Indirect Resource · RW = Rob Wealth · P = Peer. All Ten God labels are relative to your Day Master.', 'DM日元 · EG食神 · HO伤官 · DW/IW正财/偏财 · DO/7K正官/七杀 · DR/IR正印/偏印 · RW劫财 · P比肩。以上十神标签均相对于您的日主而定。')}</div>
   `;
@@ -7579,17 +7735,24 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
 
   // ENHANCEMENT 4 FIX: Da Yun Summary Table - the current cycle through age 100, each tagged with its
   // 7-tier rating (Extremely Good..Extremely Bad), placed before the detailed cycle-by-cycle breakdown.
+  const daYunUsefulGod = computeDetailedReadingAnalysis(p).usefulGod;
   const daYunSummaryRows = p.daYunPillars.filter(dy => (dy.age + 9) >= currentAge).map(dy => {
     const ageStart = dy.age, ageEnd = dy.age + 9;
     const isCurrent = currentAge >= ageStart && currentAge <= ageEnd;
     const tierLabel = bt(dy.rating.tierEN, dy.rating.tierZH);
     const tierAbbrLabel = bt(dy.rating.tierAbbr, dy.rating.tierAbbrZh);
-    return `<tr style="${isCurrent ? 'background:var(--goldsoft);font-weight:700' : ''}">
-      <td style="padding:6px 8px;border:1px solid #eee;text-align:center">${ageStart}-${ageEnd}${isCurrent ? bt(' (Now)',' (现在)') : ''}</td>
-      <td style="padding:6px 8px;border:1px solid #eee;text-align:center">${dy.calendarYearStart}-${dy.calendarYearStart+9}</td>
+    // ENHANCEMENT (reported: "there should be a tooltip to show the details of the years when hovered over
+    // them in the Da Yun"): hovering (or focusing/tapping) a row shows each of its 10 years - the Liu Nian
+    // pillar, its Ten God for this Day Master, and whether its element is favourable per the Useful God
+    // verdict. A tooltip is not printable, so the same year-by-year detail is written visibly under the row
+    // in the PDF (pdfExportMode), keeping the export complete.
+    const cycleDetail = buildDaYunCycleDetail(p, dy, daYunUsefulGod);
+    return `<tr${tipAttr(cycleDetail.head + '\n' + cycleDetail.lines.join('\n'))} style="${isCurrent ? 'background:var(--goldsoft);font-weight:700' : ''}">
+      <td style="padding:6px 8px;border:1px solid #eee;text-align:center"><span class="tip-u">${ageStart}-${ageEnd}</span>${isCurrent ? bt(' (Now)',' (现在)') : ''}</td>
+      <td style="padding:6px 8px;border:1px solid #eee;text-align:center"><span class="tip-u">${dy.calendarYearStart}-${dy.calendarYearStart+9}</span></td>
       <td style="padding:6px 8px;border:1px solid #eee;text-align:center">${stemCN[dy.stemIdx]}${branchCN[dy.branchIdx]}</td>
-      <td style="padding:6px 8px;border:1px solid #eee;text-align:center"><span style="display:inline-block;min-width:22px;color:#fff;background:${dy.rating.tierColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700" title="${tierLabel}">${tierAbbrLabel}</span></td>
-    </tr>`;
+      <td style="padding:6px 8px;border:1px solid #eee;text-align:center"><span style="display:inline-block;min-width:22px;color:#fff;background:${dy.rating.tierColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700"${tipAttr(tierLabel)}>${tierAbbrLabel}</span></td>
+    </tr>${pdfExportMode ? `<tr><td colspan="4" style="padding:3px 8px 6px;border:1px solid #eee;font-size:9px;line-height:1.5;color:var(--muted)">${cycleDetail.head.split('\n').slice(1).join(' ')}<br>${cycleDetail.lines.join(' &nbsp;|&nbsp; ')}</td></tr>` : ''}`;
   }).join('');
   const daYunSummaryTable = `
     <div style="margin-top:12px;overflow-x:auto">
@@ -7633,12 +7796,23 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
     const monthDayRel = SIX_CLASH[m.liuYueBranchIdx] === p.bazi.dayBranchIdx ? 'clash' : (SIX_HARMONY[m.liuYueBranchIdx] === p.bazi.dayBranchIdx ? 'harmony' : null);
     const reasonEN = `${dayunStageNameEN[m.dominant.key]}: ${WUXING_REL_LABEL[m.dominant.stemRel].en}. Liu Yue ${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]} = ${monthGod.en}${monthDayRel === 'clash' ? '; clashes your Day Branch' : monthDayRel === 'harmony' ? '; combines with your Day Branch' : ''}.`;
     const reasonZH = `${dayunStageNameZH[m.dominant.key]}：${WUXING_REL_LABEL[m.dominant.stemRel].zh}。流月${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]}＝${monthGod.cn}${monthDayRel === 'clash' ? '；冲您的日支' : monthDayRel === 'harmony' ? '；与您的日支相合' : ''}。`;
-    return `<tr style="${isBest ? 'background:#e8f5e9' : isWorst ? 'background:#fdeaea' : ''}">
+    // Tooltip: the full cascade behind this month - the three pillars with their Ten Gods, and each stage's own
+    // score, so the one-line Reason above can be traced to the exact numbers (same scoreDaYunMonth the table uses).
+    const sc = scoreDaYunMonth(p.bazi.dayStemIdx, p.bazi.dayBranchIdx, m.dayunStemIdx, m.dayunBranchIdx, m.liuNianStemIdx, m.liuNianBranchIdx, m.liuYueStemIdx, m.liuYueBranchIdx);
+    const fmt = (n) => (n > 0 ? '+' : '') + n;
+    const dyG = getTenGod(p.bazi.dayStemIdx, m.dayunStemIdx), lnG = getTenGod(p.bazi.dayStemIdx, m.liuNianStemIdx);
+    const monthTip = [
+      bt(`${m.year}-${String(m.month).padStart(2,'0')}: ${m.tier.en}`, `${m.year}-${String(m.month).padStart(2,'0')}：${m.tier.zh}`),
+      bt(`Da Yun ${stemCN[m.dayunStemIdx]}${branchCN[m.dayunBranchIdx]} (${dyG.en}) · Liu Nian ${stemCN[m.liuNianStemIdx]}${branchCN[m.liuNianBranchIdx]} (${lnG.en}) · Liu Yue ${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]} (${monthGod.en})`, `大运${stemCN[m.dayunStemIdx]}${branchCN[m.dayunBranchIdx]}（${dyG.cn}）· 流年${stemCN[m.liuNianStemIdx]}${branchCN[m.liuNianBranchIdx]}（${lnG.cn}）· 流月${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]}（${monthGod.cn}）`),
+      bt(`Stage scores: Day Master vs Da Yun ${fmt(sc.s1)} (x1.0) · Da Yun vs Liu Nian ${fmt(sc.s2)} (x0.6) · Liu Nian vs Liu Yue ${fmt(sc.s3)} (x0.4)`, `分段评分：日主与大运 ${fmt(sc.s1)}（×1.0）· 大运与流年 ${fmt(sc.s2)}（×0.6）· 流年与流月 ${fmt(sc.s3)}（×0.4）`),
+      bt(`Weighted total ${sc.total.toFixed(1)} → ${m.tier.en}`, `加权总分 ${sc.total.toFixed(1)} → ${m.tier.zh}`)
+    ].join('\n');
+    return `<tr${tipAttr(monthTip)} style="${isBest ? 'background:#e8f5e9' : isWorst ? 'background:#fdeaea' : ''}">
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${m.year}</td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${String(m.month).padStart(2,'0')}</td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${stemCN[m.liuNianStemIdx]}${branchCN[m.liuNianBranchIdx]}</td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]}</td>
-      <td style="padding:4px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;color:#fff;background:${m.tier.color};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">${bt(m.tier.en, m.tier.zh)}</span></td>
+      <td style="padding:4px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;color:#fff;background:${m.tier.color};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700"${tipTier(m.tier)}>${bt(m.tier.en, m.tier.zh)}</span></td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px">${bt(reasonEN, reasonZH)}</td>
     </tr>`;
   }).join('');
@@ -7673,11 +7847,16 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
     const isBest = m === astro3yr.best, isWorst = m === astro3yr.worst;
     const relEN = m.sameSign ? 'solar-return month' : `${m.elemRel} element${m.sameModality ? ', same modality' : ''}`;
     const relZH = m.sameSign ? '本命回归月' : `${{same:'相同',complementary:'互补',challenging:'挑战性'}[m.elemRel]}元素${m.sameModality ? '，宫性相同' : ''}`;
-    return `<tr style="${isBest ? 'background:#e8f5e9' : isWorst ? 'background:#fdeaea' : ''}">
+    const astroTip = [
+      bt(`${m.year}-${String(m.month).padStart(2,'0')}: ${m.tier.en}`, `${m.year}-${String(m.month).padStart(2,'0')}：${m.tier.zh}`),
+      bt(`The Sun is transiting ${m.transitSign.en} this month (${m.sameSign ? 'your own Sun sign - the solar-return month' : relEN}).`, `本月太阳行经${m.transitSign.zh}（${m.sameSign ? '即您的太阳星座——本命回归月' : relZH}）。`),
+      bt('Sun-sign Element/Modality match only - see the deep analysis below for the full scope note.', '仅为太阳星座的元素／宫性对照——完整范围说明见下方深度分析。')
+    ].join('\n');
+    return `<tr${tipAttr(astroTip)} style="${isBest ? 'background:#e8f5e9' : isWorst ? 'background:#fdeaea' : ''}">
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${m.year}</td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${String(m.month).padStart(2,'0')}</td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${bt(m.transitSign.en, m.transitSign.zh)}</td>
-      <td style="padding:4px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;color:#fff;background:${m.tier.color};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700">${bt(m.tier.en, m.tier.zh)}</span></td>
+      <td style="padding:4px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;color:#fff;background:${m.tier.color};padding:1px 6px;border-radius:8px;font-size:9px;font-weight:700"${tipTier(m.tier)}>${bt(m.tier.en, m.tier.zh)}</span></td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px">${bt(relEN, relZH)}</td>
     </tr>`;
   }).join('');
@@ -7887,7 +8066,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
             <td style="padding:5px 6px;border:1px solid #eee;text-align:center">${b.stemCN}${b.branchCN}</td>
             <td style="padding:5px 6px;border:1px solid #eee;text-align:center">${bt('Palace','宫')} ${b.palace}</td>
             <td style="padding:5px 6px;border:1px solid #eee;text-align:center">${b.cell.door}</td>
-            <td style="padding:5px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;min-width:20px;color:#fff;background:${b.rating.tierColor};padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700" title="${bt(b.rating.tierEN, b.rating.tierZH)}">${bt(b.rating.tierAbbr, b.rating.tierAbbrZh)}</span></td>
+            <td style="padding:5px 6px;border:1px solid #eee;text-align:center"><span style="display:inline-block;min-width:20px;color:#fff;background:${b.rating.tierColor};padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700" ${tipAttr(bt(b.rating.tierEN, b.rating.tierZH))}>${bt(b.rating.tierAbbr, b.rating.tierAbbrZh)}</span></td>
           </tr>`).join('');
         return `
           <div style="margin-top:14px">
@@ -8748,7 +8927,7 @@ function generateSummaryCardHTML(focusP, compareP, isBusiness, isZh, prefix = 'i
   // value font-size are now also aligned to overviewTile's own metrics (10px 12px padding, 10px
   // radius, 13px/700/1.4 value text) instead of this card's own slightly smaller ad-hoc sizing, so the
   // two cards genuinely render at the same size, not just the same order.
-  const keyFactsTile = (label, value, wide) => `<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px${wide ? ';grid-column:span 2' : ''}"><div style="font-size:10px;opacity:0.75;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">${label}</div><div style="font-size:13px;font-weight:700;line-height:1.4">${value}</div></div>`;
+  const keyFactsTile = (label, value, wide) => { const g = glossTipAttr(label); return `<div${g} style="background:rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px${wide ? ';grid-column:span 2' : ''}"><div style="font-size:10px;opacity:0.75;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">${label}${g ? TIP_ICON_HTML : ''}</div><div style="font-size:13px;font-weight:700;line-height:1.4">${value}</div></div>`; };
   const keyFactsRows = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <!-- BUG FIX (reported: "longitude and timezone missing from landing page summary card"): the
@@ -9405,9 +9584,9 @@ function buildHourlyDayHTML(p, blocks, nameCompat, elemNames, elemNamesZH) {
     b.popupId = popupId;
   });
 
-  const summaryRows = blocks.map(b => `<tr class="btnViewDeepAnalysis" data-id="${b.popupId}" style="cursor:pointer;${b.isNow ? 'background:var(--goldsoft);font-weight:700' : ''}">
+  const summaryRows = blocks.map(b => `<tr class="btnViewDeepAnalysis" data-id="${b.popupId}"${tipAttr(bt(`${b.label}: ${b.stemCN}${b.branchCN} hour, Palace ${b.palace} (${b.cell.door}, rated ${b.doorRating}). Best for: ${b.suitableList.join(', ')}. Click for the full reading.`, `${b.label}：${b.stemCN}${b.branchCN}时，第${b.palace}宫（${b.cell.door}，评级：${b.doorRating}）。适宜：${b.suitableList.join('、')}。点击查看完整解读。`))} style="cursor:pointer;${b.isNow ? 'background:var(--goldsoft);font-weight:700' : ''}">
     <td style="padding:6px 8px;border:1px solid #eee;text-align:center">${b.label}${b.isNow ? bt(' (Now)',' (现在)') : ''}</td>
-    <td style="padding:6px 8px;border:1px solid #eee;text-align:center"><span style="display:inline-block;min-width:22px;color:#fff;background:${b.rating.tierColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700" title="${b.tierLabel}">${b.tierAbbrLabel}</span></td>
+    <td style="padding:6px 8px;border:1px solid #eee;text-align:center"><span style="display:inline-block;min-width:22px;color:#fff;background:${b.rating.tierColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700" ${tipAttr(b.tierLabel)}>${b.tierAbbrLabel}</span></td>
     <td style="padding:6px 8px;border:1px solid #eee;font-size:11px">${b.suitableList.slice(0,2).join(', ')}${b.isYiMaPalace ? bt(', travel',' 、出行') : ''}</td>
     <td style="padding:6px 8px;border:1px solid #eee;text-align:center;color:var(--plum);font-size:11px;white-space:nowrap">${bt('View','查看')} ›</td>
   </tr>`).join('');
@@ -9780,6 +9959,7 @@ function renderDetailedReadingTab(profilePrefix) {
 
 // Event Listeners completely restored and linked
 function initListeners() {
+  try { initTooltips(); refreshStaticTips(); } catch (e) { console.warn('Tooltip setup failed:', e); }
   // BUG FIX (this round): a genuine, severe issue found while investigating a report that tabs showed
   // no content. Root cause: initListeners() is one long function (~680 lines) that registers ALL of
   // this app's delegated click/change listeners - including the one that handles tab switching,
