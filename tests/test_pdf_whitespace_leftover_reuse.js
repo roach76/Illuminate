@@ -37,7 +37,9 @@ check(/currentUsedMm \+= sliceHMm;/.test(appSrc), 'currentUsedMm accumulates (no
 // --- Behavioral: extract the REAL PASS-2 code verbatim and drive it with synthetic units ---
 // UPDATED (Task #78): PASS 2's forEach now takes a second (groupIdx) parameter - unrelated to this
 // test's own leftover-room-reuse behavior, which is untouched by that change.
-const startMarker = '  const pages = [];\n  let currentPage = [], currentUsedMm = 0;\n  const sectionStartPage = [];\n  placementGroups.forEach((group, groupIdx) => {';
+// (A helper, startNewPageCarryingLeadIn, now sits between the page-state declaration and sectionStartPage, so the start
+// marker is the page-state declaration itself.)
+const startMarker = '  const pages = [];' + String.fromCharCode(10) + '  let currentPage = [], currentUsedMm = 0;' + String.fromCharCode(10);
 const endMarker = '  if (currentPage.length) pages.push(currentPage);';
 const startIdx = appSrc.indexOf(startMarker);
 const endIdx = appSrc.indexOf(endMarker, startIdx);

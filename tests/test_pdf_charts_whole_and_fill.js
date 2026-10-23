@@ -128,5 +128,50 @@ const group = (members) => ({ members, totalHeightMm: members.reduce((s, m) => s
   check(tot === 500 * PX && r.pages.length >= 2, 'a chart taller than a page is still sliced safely and fully placed');
 }
 
+const mk = (sec, first, h, noMid) => fakeUnit(sec, first, h, noMid ? { noMidSlice: true } : {});
+// ---- 4. titles travel with their chart (reported: "Ming Li title on page 6, chart on page 7 with no title") ----
+{
+  // earlier section (110mm), then Ming Li: heading 7 + pill 11 + intro box 52 (= 70mm), then the 163mm chart that cannot fit.
+  const r = runPass2([
+    group([mk(3, true, 110)]),
+    group([mk(4, true, 7), mk(4, false, 11), mk(4, false, 52)]),
+    group([mk(4, false, 163, true)])
+  ]);
+  check(r.pages.length === 2, 'two pages (chart moved)');
+  check(r.pages[0].every(it => it.sectionIndex === 3), 'page 1 keeps only the earlier section - the Ming Li heading, pill and intro box moved WITH the chart');
+  check(r.pages[1].length === 4 && r.pages[1][0].heightMm === 7 && r.pages[1][3].heightMm === 163, 'page 2 starts with the heading, pill and intro box, then the chart');
+  check(Math.abs(r.pages[1][1].drawYMm - 7) < 1e-9 && Math.abs(r.pages[1][3].drawYMm - 70) < 1e-9, 'carried items are re-positioned from the top of the new page');
+  check(r.sectionStartPage[4] === 1, 'the Table of Contents entry for the section points at the page the heading now sits on');
+}
+{
+  // heading is out of reach (a 140mm text block sits between heading and pill): only the label directly above the chart follows.
+  const r = runPass2([
+    group([mk(4, true, 7)]),
+    group([mk(4, false, 140)]),
+    group([mk(4, false, 11)]),
+    group([mk(4, false, 163, true)])
+  ]);
+  check(r.pages[0].map(it => it.heightMm).join(',') === '7,140', 'page 1 keeps the heading and the long text block');
+  check(r.pages[1].map(it => it.heightMm).join(',') === '11,163', 'the pill label directly above the chart follows it to the next page');
+  check(r.sectionStartPage[4] === 0, 'section still starts on page 1');
+}
+{
+  // the whole page is the lead-in: no empty page may be produced
+  const r = runPass2([group([mk(4, true, 7), mk(4, false, 11), mk(4, false, 52)]), group([mk(4, false, 200, true)])]);
+  check(r.pages.length === 1 || r.pages.every(pg => pg.length > 0), 'no empty page is created when the entire page was the lead-in');
+  check(r.pages.flat().length === 4, 'all four items are placed exactly once');
+}
+{
+  // a non-chart group is unaffected (ordinary flow, no carrying)
+  const r = runPass2([group([mk(3, true, 110)]), group([mk(4, true, 7), mk(4, false, 11), mk(4, false, 52)]), group([mk(4, false, 163)])]);
+  const placedMm = r.pages.flat().reduce((m, it) => m + it.heightMm, 0);
+  check(r.pages[0].some(it => it.sectionIndex === 4 && it.heightMm === 7) && Math.abs(placedMm - (110 + 70 + 163)) < 1, 'ordinary (non-chart) content keeps the existing behaviour: nothing is carried, all content placed');
+}
+{
+  // carried lead-in + chart must fit one page; otherwise nothing is carried
+  const r = runPass2([group([mk(3, true, 100)]), group([mk(4, true, 7), mk(4, false, 11), mk(4, false, 52)]), group([mk(4, false, 200, true)])]);
+  check(r.pages.flat().length === 5, 'nothing lost when the lead-in plus chart would exceed a page');
+}
+
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

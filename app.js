@@ -3379,6 +3379,49 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
   // with any earlier (label) members rendered first, in full, directly above that slice.
   const pages = [];
   let currentPage = [], currentUsedMm = 0;
+  // TITLES TRAVEL WITH THEIR CHART (reported: "if the chart goes to the next page, the relevant titles and section
+  // above the chart should follow. For example, the Ming Li title is on page 6 and the chart goes to page 7 with no
+  // title of the chart"). When a chart-like group (noMidSlice) can't fit what is left of the page and moves to a
+  // fresh one, the lead-in that sits directly above it on the current page - the same section's trailing items, back
+  // to and including the section heading when that is within reach - is carried along, so the chart is never
+  // separated from the heading / pill label / intro box that introduces it. Carried content is limited so it can
+  // never waste a page: at most 90mm in total, it must fit on the new page together with the chart, and if the
+  // section's own heading is further up than that, only the label-sized items directly above the chart follow.
+  function startNewPageCarryingLeadIn(nextGroup) {
+    const first = nextGroup && nextGroup.members[0];
+    const lastItem = currentPage[currentPage.length - 1];
+    let carried = [];
+    if (first && first.noMidSlice && lastItem && lastItem.sectionIndex === first.sectionIndex && nextGroup.totalHeightMm <= CONTENT_H_MM) {
+      const LEAD_IN_MAX_MM = 90, LABEL_MM = 18;
+      let sumMm = 0, idx = currentPage.length - 1, reachedHeading = false;
+      const run = [];
+      while (idx >= 0 && currentPage[idx].sectionIndex === first.sectionIndex) {
+        sumMm += currentPage[idx].heightMm;
+        if (sumMm > LEAD_IN_MAX_MM) break;
+        run.unshift(currentPage[idx]);
+        if (currentPage[idx].first) { reachedHeading = true; break; }
+        idx -= 1;
+      }
+      if (reachedHeading) carried = run;
+      else {
+        // heading is out of reach: carry only the label-sized items directly above the chart (e.g. its pill label)
+        const tail = [];
+        for (let k = currentPage.length - 1; k >= 0 && currentPage[k].sectionIndex === first.sectionIndex && currentPage[k].heightMm <= LABEL_MM; k--) tail.unshift(currentPage[k]);
+        carried = tail;
+      }
+      const carriedMm = carried.reduce((m, it) => m + it.heightMm, 0);
+      if (carried.length && carriedMm + nextGroup.totalHeightMm > CONTENT_H_MM) carried = [];
+    }
+    if (carried.length) currentPage = currentPage.slice(0, currentPage.length - carried.length);
+    if (currentPage.length > 0) pages.push(currentPage); // (written this way so PASS 2's end-of-loop marker, used by the extraction tests, stays unique)
+    currentPage = []; currentUsedMm = 0;
+    carried.forEach(it => {
+      const moved = Object.assign({}, it, { drawYMm: currentUsedMm });
+      currentPage.push(moved);
+      currentUsedMm += it.heightMm;
+      if (it.first) sectionStartPage[it.sectionIndex] = pages.length;
+    });
+  }
   const sectionStartPage = [];
   placementGroups.forEach((group, groupIdx) => {
     // BUG FIX (reported directly against a real export, page 11 as an example: the "Cheng Gu Suan Ming"
@@ -3422,7 +3465,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       currentUsedMm > 0 && leftoverRoomMmForGroup >= MIN_FIRST_SLICE_MM_LOOKAHEAD && !lastMemberNoMidSlice;
     if (group.totalHeightMm <= CONTENT_H_MM && !worthReusingLeftoverForOverflow) {
       if (currentUsedMm > 0 && currentUsedMm + group.totalHeightMm > CONTENT_H_MM) {
-        pages.push(currentPage); currentPage = []; currentUsedMm = 0;
+        startNewPageCarryingLeadIn(group);
       }
       // BUG FIX (reported directly against a real export, page 9: "Cheng Gu Suan Ming at the bottom of
       // the page and the details on the next page. Such scenarios should not happen and should be
@@ -3472,7 +3515,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
         // happened on): sectionIndex is now carried through into each page item, so PASS 3 below can
         // report exactly which section/page it was assembling at the moment of any future failure,
         // instead of only the final, already-wrapped "Error during chunked export" message.
-        currentPage.push({ canvas: u.canvas, srcYPx: 0, srcHPx: u.canvas.height, drawYMm: currentUsedMm, heightMm: u.heightMm, pxPerMm: u.pxPerMm, sectionIndex: u.sectionIndex });
+        currentPage.push({ canvas: u.canvas, srcYPx: 0, srcHPx: u.canvas.height, drawYMm: currentUsedMm, heightMm: u.heightMm, pxPerMm: u.pxPerMm, sectionIndex: u.sectionIndex, first: !!u.isFirstOfSection });
         currentUsedMm += u.heightMm;
       });
     } else {
@@ -3525,7 +3568,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
         }
         labelMembers.forEach(m => {
           if (m.isFirstOfSection) sectionStartPage[m.sectionIndex] = pages.length;
-          currentPage.push({ canvas: m.canvas, srcYPx: 0, srcHPx: m.canvas.height, drawYMm: currentUsedMm, heightMm: m.heightMm, pxPerMm: m.pxPerMm, sectionIndex: m.sectionIndex });
+          currentPage.push({ canvas: m.canvas, srcYPx: 0, srcHPx: m.canvas.height, drawYMm: currentUsedMm, heightMm: m.heightMm, pxPerMm: m.pxPerMm, sectionIndex: m.sectionIndex, first: !!m.isFirstOfSection });
           currentUsedMm += m.heightMm;
         });
       }
