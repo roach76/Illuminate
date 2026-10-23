@@ -2504,6 +2504,23 @@ function findSafeSliceCutPx(canvas, desiredCutPx, minCutPx) {
   return desiredCutPx;
 }
 
+// True when the canvas row at `y` has no ink anywhere across its width (same luminance test as findSafeSliceCutPx).
+// Canvases without a 2D context (the plain-object stand-ins the pagination tests use) are treated as blank so
+// those tests exercise the geometry only.
+function canvasRowIsBlank(canvas, y) {
+  if (!canvas || typeof canvas.getContext !== 'function') return true;
+  try {
+    const w = canvas.width;
+    if (y < 0 || y >= canvas.height || w <= 0) return true;
+    const data = canvas.getContext('2d').getImageData(0, Math.floor(y), w, 1).data;
+    for (let x = 0; x < w; x++) {
+      const i = x * 4;
+      if (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2] < 180) return false;
+    }
+    return true;
+  } catch (e) { return true; }
+}
+
 async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
   const MARGIN_MM = 10, PAGE_W_MM = 210, PAGE_H_MM = 297;
   // ENHANCEMENT (requested directly: "Add in headers with the App logo and suitable color
@@ -2878,7 +2895,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       // four-pillar chart, the QMDJ and Zi Wei palace grids, the Flying Star grids). Such a unit is only ever
       // placed whole: if it does not fit what is left of the current page it moves, whole, to the next one.
       const noMidSlice = isChartLikeNode(node);
-      captureUnits.push({ node, sectionIndex, isFirstOfSection, noMidSlice, desc: describeCaptureNode(node) });
+      captureUnits.push({ node, sectionIndex, isFirstOfSection, noMidSlice, desc: describeCaptureNode(node), isCaption: !!(node.classList && node.classList.contains('chart-caption')) });
     }
   }
   topLevelNodes.forEach((node, sectionIndex) => expandIntoCaptureUnits(node, sectionIndex, 0));
@@ -3059,6 +3076,20 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       // with no adjacent-sibling margin-collapsing to account for.
       secContainer.style.cssText = wrapperStyleNoPadding + `; padding:0; display:flow-root; width:${EXPORT_CAPTURE_WIDTH}px; background:#fff;`;
       const clonedNode = node.cloneNode(true);
+      // ROOT-CAUSE FIX (reported: "truncation of words in page 18", the I Ching hexagram's caption cut off at the
+      // bottom): a capture unit whose OWN root element has a NEGATIVE margin (the caption under the hexagram uses
+      // `margin:-8px 0 8px`) is captured with its box pulled outside its wrapper (the wrapper is `flow-root`, so the
+      // negative margin is contained rather than collapsing out), and the part of the text that falls outside the
+      // wrapper's measured box is clipped away when the unit is sliced out of the batch canvas. A unit's own
+      // negative margins carry no meaning once it is a stand-alone capture, so they are zeroed here (positive
+      // margins are left alone - they provide the spacing between units).
+      try {
+        const ucs = window.getComputedStyle(node);
+        if (parseFloat(ucs.marginTop) < 0) clonedNode.style.marginTop = '0px';
+        if (parseFloat(ucs.marginBottom) < 0) clonedNode.style.marginBottom = '0px';
+        if (parseFloat(ucs.marginLeft) < 0) clonedNode.style.marginLeft = '0px';
+        if (parseFloat(ucs.marginRight) < 0) clonedNode.style.marginRight = '0px';
+      } catch (e) { /* computed style unavailable - leave as is */ }
       // BUG FIX (reported: "hundreds of errors on violating node" - hundreds of "Duplicate form field
       // id" browser warnings during export): the full, original content container stays in the DOM for
       // the ENTIRE export (it's only removed at the very end), while this loop also creates a separate
@@ -3205,6 +3236,21 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
     // Record each member's own rendered offset/height within the batch container AFTER scaling has
     // settled (so the slicing math below matches exactly what gets captured), and BEFORE the capture
     // call - read straight off the live, attached DOM, not guessed from the eventual canvas.
+    // Audit hook (diagnostic, off by default): with `globalThis.__pdfAuditOverflow = true`, any element that sticks out of
+    // its capture unit's measured box - i.e. content that would be clipped when the unit is sliced out of the batch
+    // canvas, the "word cut off at the bottom of a unit" failure - is recorded in `globalThis.__pdfOverflowFindings`.
+    if (globalThis.__pdfAuditOverflow) {
+      globalThis.__pdfOverflowFindings = globalThis.__pdfOverflowFindings || [];
+      memberWrappers.forEach((w, mi) => {
+        const wr = w.getBoundingClientRect();
+        w.querySelectorAll('*').forEach(el => {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0 && (r.bottom > wr.bottom + 1 || r.top < wr.top - 1 || r.right > wr.right + 1 || r.left < wr.left - 1)) {
+            globalThis.__pdfOverflowFindings.push({ unit: batchMembers[mi].desc || '', el: String(el.tagName) + (el.className ? '.' + String(el.className.baseVal !== undefined ? el.className.baseVal : el.className).split(' ')[0] : ''), text: (el.textContent || '').trim().slice(0, 30), over: { b: Math.round(r.bottom - wr.bottom), t: Math.round(wr.top - r.top), r: Math.round(r.right - wr.right), l: Math.round(wr.left - r.left) } });
+          }
+        });
+      });
+    }
     const memberBounds = memberWrappers.map(w => ({ top: w.offsetTop, height: w.offsetHeight, zones: measureNoCutZones(w) }));
     const containerCssHeight = batchContainer.scrollHeight;
 
@@ -3283,7 +3329,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       ctx.drawImage(batchCanvas, 0, srcY, batchCanvas.width, srcH, 0, 0, batchCanvas.width, srcH);
       const pxPerMm = unitCanvas.width / CONTENT_W_MM;
       const zonesPx = (bounds.zones || []).map(z => [Math.round(z[0] * pxPerCssPxY), Math.round(z[1] * pxPerCssPxY)]);
-      units.push({ zonesPx, sectionIndex: unit.sectionIndex, isFirstOfSection: unit.isFirstOfSection, canvas: unitCanvas, pxPerMm, heightMm: unitCanvas.height / pxPerMm, noMidSlice: !!unit.noMidSlice, desc: unit.desc || '' });
+      units.push({ zonesPx, sectionIndex: unit.sectionIndex, isFirstOfSection: unit.isFirstOfSection, canvas: unitCanvas, pxPerMm, heightMm: unitCanvas.height / pxPerMm, noMidSlice: !!unit.noMidSlice, desc: unit.desc || '', isCaption: !!unit.isCaption });
     });
     } finally {
       // Always runs - on success AND on a thrown/rejected capture - so this batch's clones never
@@ -3335,6 +3381,17 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
   const LABEL_ORPHAN_MAX_MM = 18; // generous allowance for one heading/label line plus its own margin
   const placementGroups = [];
   for (let gi = 0; gi < units.length; ) {
+    // A chart CAPTION (e.g. "Gold line marks the moving line" under the hexagram) belongs to the graphic ABOVE it, not
+    // to whatever follows: attach it to the previous placement group so a page break can never separate them.
+    if (units[gi].isCaption && placementGroups.length) {
+      const prevGroup = placementGroups[placementGroups.length - 1];
+      if (prevGroup.members[prevGroup.members.length - 1].sectionIndex === units[gi].sectionIndex) {
+        prevGroup.members.push(units[gi]);
+        prevGroup.totalHeightMm += units[gi].heightMm;
+        gi += 1;
+        continue;
+      }
+    }
     const members = [units[gi]];
     let totalHeightMm = units[gi].heightMm;
     let idx = gi;
@@ -3624,6 +3681,22 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
           const minCutPx = srcYPx + Math.floor(sliceHPx * 0.6);
           const safeCutPx = findSafeSliceCutPx(u.canvas, desiredCutPx, minCutPx);
           if (safeCutPx > srcYPx) sliceHPx = safeCutPx - srcYPx;
+        }
+        // NO WORD IS EVER CUT (reported: "truncation of words in page 18 ... check all for such scenarios and ensure no
+        // truncations"): the snap above only finds a blank row inside a limited window. If the cut still lands on a row
+        // with ink (dense content with no gap nearby) it would tear a line of text in half. Try a much wider search; if
+        // there is still no clean row and the unit fits on one page, start it on a fresh page instead of cutting it
+        // (a unit taller than a page has no choice and is cut at the best row found).
+        if (sliceHPx < remainingPx && !canvasRowIsBlank(u.canvas, srcYPx + sliceHPx)) {
+          const wideCut = findSafeSliceCutPx(u.canvas, srcYPx + sliceHPx, srcYPx + Math.floor(sliceHPx * 0.2));
+          if (wideCut > srcYPx && canvasRowIsBlank(u.canvas, wideCut)) {
+            sliceHPx = wideCut - srcYPx;
+          } else if (isFirstSlice && currentUsedMm > 0 && u.heightMm <= CONTENT_H_MM) {
+            if (currentPage.length > 0) pages.push(currentPage);
+            currentPage = []; currentUsedMm = 0;
+            firstSliceCapPx = sliceCapPx;
+            continue;
+          }
         }
         // CHARTS ARE NEVER CUT (reported: "charts should always be on the same page and not truncated"): if the
         // cut would land inside a chart-like region that itself fits on one page, move the cut up to just above
@@ -8713,7 +8786,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
     <article class="reading">
       <span class="pill">${trPill(`I Ching Divination`)}</span>
       <div style="margin:12px 0">${getHexagramSVG(p.meiHua.upperTrigramNum, p.meiHua.lowerTrigramNum, p.meiHua.movingLine)}</div>
-      <div style="font-size:10px;color:var(--muted);margin:-8px 0 8px">${bt('Gold line marks the moving line (动爻).','金色爻线为动爻。')}</div>
+      <div class="chart-caption" style="font-size:10px;color:var(--muted);margin:-8px 0 8px">${bt('Gold line marks the moving line (动爻).','金色爻线为动爻。')}</div>
       ${ichingRows}
       <div class="calc-box" style="font-size:11px">${bt('Cast via the Mei Hua Yi Shu (梅花易数) Year-Month-Day-Hour method using your own birth data, then mapped to its genuine King Wen sequence position and traditional name (verified against the classical inner/outer trigram record for all 64 hexagrams, not reconstructed from memory) - see the Deep Analysis below for how this was calculated. The "#N" compatible/incompatible references below are real King Wen sequence numbers.', '依梅花易数「年月日时起卦法」，以您本人的出生数据实际起卦，并对应至真实的周易卦序及传统卦名（依六十四卦完整的上下卦记录逐一核实，而非凭记忆重建）——详细推算方式见下方深度分析。以下「#N」相合／相冲编号均为真实的周易卦序编号。')}</div>
       ${generateDeepAnalysisData('iching', p, {title: 'I-Ching Natal Hexagram Profile'})}

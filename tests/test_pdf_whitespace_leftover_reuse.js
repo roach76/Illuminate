@@ -12,6 +12,15 @@ const __PROJECT_ROOT__ = require('path').resolve(__dirname, '..');
 // fabricated geometry standing in for html2canvas output (which only a real browser can produce - see
 // pdf_whitespace_probe.js for that side of verification).
 const fs = require('fs');
+// canvasRowIsBlank (used by PASS 2's no-word-cut guard) is a sibling of findSafeSliceCutPx - extract it too.
+function __crbSrc() {
+  const a = fs.readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const st = a.indexOf('function canvasRowIsBlank(canvas, y) {');
+  let d = 0, i = st, en = -1;
+  for (; i < a.length; i++) { if (a[i] === '{') d++; else if (a[i] === '}') { d--; if (d === 0) { en = i + 1; break; } } }
+  return a.slice(st, en);
+}
+
 const path = require('path');
 const PROJECT_DIR = (__PROJECT_ROOT__ + '');
 let pass = 0, fail = 0;
@@ -61,12 +70,13 @@ if (startIdx !== -1 && endIdx !== -1) {
       if (appSrc[idx2] === '{') depth++;
       else if (appSrc[idx2] === '}') { depth--; if (depth === 0) { endIdx2 = idx2 + 1; break; } }
     }
-    if (endIdx2 !== -1) findSafeSliceCutPxSrc = appSrc.slice(findSafeSliceCutPxStart, endIdx2);
+    if (endIdx2 !== -1) findSafeSliceCutPxSrc = appSrc.slice(findSafeSliceCutPxStart, endIdx2) + '\n' + __crbSrc();
   }
   check(!!findSafeSliceCutPxSrc, 'findSafeSliceCutPx source located and extracted for use by PASS 2 below');
   const findSafeSliceCutPx = new Function('canvas', 'desiredCutPx', 'minCutPx', findSafeSliceCutPxSrc + '\nreturn findSafeSliceCutPx(canvas, desiredCutPx, minCutPx);');
-  const runPass2 = new Function('placementGroups', 'CONTENT_H_MM', 'findSafeSliceCutPx', pass2Code + '\nreturn { pages, sectionStartPage };');
-  const runPass2Wrapped = (pg, chm) => runPass2(pg, chm, findSafeSliceCutPx);
+  const canvasRowIsBlank = new Function(__crbSrc() + '\nreturn canvasRowIsBlank;')();
+  const runPass2 = new Function('placementGroups', 'CONTENT_H_MM', 'findSafeSliceCutPx', 'canvasRowIsBlank', pass2Code + '\nreturn { pages, sectionStartPage };');
+  const runPass2Wrapped = (pg, chm) => runPass2(pg, chm, findSafeSliceCutPx, canvasRowIsBlank);
 
   // Scenario: a small "fits" group (40mm) is placed first, leaving 213mm of leftover room on a 253mm
   // page. It's immediately followed by one oversized unit whose real height (400mm) needs slicing.

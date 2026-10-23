@@ -12,6 +12,15 @@ const __PROJECT_ROOT__ = require('path').resolve(__dirname, '..');
 //  3. Charts (svg/canvas/img/table/grid/flex layouts) are flagged noMidSlice, and an oversized unit's slices are
 //     steered away from cutting through a chart (no-cut zones).
 const fs = require('fs');
+// canvasRowIsBlank (used by PASS 2's no-word-cut guard) is a sibling of findSafeSliceCutPx - extract it too.
+function __crbSrc() {
+  const a = fs.readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const st = a.indexOf('function canvasRowIsBlank(canvas, y) {');
+  let d = 0, i = st, en = -1;
+  for (; i < a.length; i++) { if (a[i] === '{') d++; else if (a[i] === '}') { d--; if (d === 0) { en = i + 1; break; } } }
+  return a.slice(st, en);
+}
+
 const path = require('path');
 const vm = require('vm');
 const { JSDOM } = require('jsdom');
@@ -63,7 +72,7 @@ const pass2Src = appSrc.slice(startIdx, endIdx + endMarker.length);
 const fsStart = appSrc.indexOf('function findSafeSliceCutPx(canvas, desiredCutPx, minCutPx) {');
 let depth = 0, k = fsStart, fsEnd = -1;
 for (; k < appSrc.length; k++) { if (appSrc[k] === '{') depth++; else if (appSrc[k] === '}') { depth--; if (depth === 0) { fsEnd = k + 1; break; } } }
-const findSafeSrc = appSrc.slice(fsStart, fsEnd);
+const findSafeSrc = appSrc.slice(fsStart, fsEnd) + '\n' + __crbSrc();
 function runPass2(placementGroups) {
   const sandbox = { console, CONTENT_H_MM, placementGroups, __result: null };
   sandbox.global = sandbox;

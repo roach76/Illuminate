@@ -13,6 +13,15 @@ const __PROJECT_ROOT__ = require('path').resolve(__dirname, '..');
 // the oversized/slice branches) source directly out of app.js and runs it against hand-built synthetic
 // units - so it exercises the actual shipped algorithm, not a reimplementation of it.
 const fs = require('fs');
+// canvasRowIsBlank (used by PASS 2's no-word-cut guard) is a sibling of findSafeSliceCutPx - extract it too.
+function __crbSrc() {
+  const a = fs.readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const st = a.indexOf('function canvasRowIsBlank(canvas, y) {');
+  let d = 0, i = st, en = -1;
+  for (; i < a.length; i++) { if (a[i] === '{') d++; else if (a[i] === '}') { d--; if (d === 0) { en = i + 1; break; } } }
+  return a.slice(st, en);
+}
+
 const path = require('path');
 const vm = require('vm');
 
@@ -55,7 +64,7 @@ if (findSafeSliceCutPxStart !== -1) {
     if (appSrc[idx] === '{') depth++;
     else if (appSrc[idx] === '}') { depth--; if (depth === 0) { endIdx = idx + 1; break; } }
   }
-  if (endIdx !== -1) findSafeSliceCutPxSrc = appSrc.slice(findSafeSliceCutPxStart, endIdx);
+  if (endIdx !== -1) findSafeSliceCutPxSrc = appSrc.slice(findSafeSliceCutPxStart, endIdx) + '\n' + __crbSrc();
 }
 check(!!findSafeSliceCutPxSrc, 'findSafeSliceCutPx source located and extracted for use by PASS 2 below');
 

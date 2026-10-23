@@ -31,7 +31,7 @@ check(/\.from\(batchContainer\)\.toCanvas\(\)/.test(appSrc), 'capture call now t
 // PASS 2 knows never to pixel-slice it - see test_pdf_nomidslice_table_protection.js for the dedicated
 // coverage of that fix. The original 5 fields (sectionIndex/isFirstOfSection/canvas/pxPerMm/heightMm) are
 // all still present, unchanged, alongside it.
-check(/units\.push\(\{ zonesPx, sectionIndex: unit\.sectionIndex, isFirstOfSection: unit\.isFirstOfSection, canvas: unitCanvas, pxPerMm, heightMm: unitCanvas\.height \/ pxPerMm, noMidSlice: !!unit\.noMidSlice, desc: unit\.desc \|\| '' \}\);/.test(appSrc), 'units[] entries carry the original 5 fields (sectionIndex/isFirstOfSection/canvas/pxPerMm/heightMm) plus the newer noMidSlice flag');
+check(/units\.push\(\{ zonesPx, sectionIndex: unit\.sectionIndex, isFirstOfSection: unit\.isFirstOfSection, canvas: unitCanvas, pxPerMm, heightMm: unitCanvas\.height \/ pxPerMm, noMidSlice: !!unit\.noMidSlice, desc: unit\.desc \|\| '', isCaption: !!unit\.isCaption \}\);/.test(appSrc), 'units[] entries carry the original 5 fields (sectionIndex/isFirstOfSection/canvas/pxPerMm/heightMm) plus the newer noMidSlice flag');
 
 function freshSandbox() {
   const dom = new JSDOM(fs.readFileSync(path.join(PROJECT_DIR, 'index.html'), 'utf8'), { url: 'http://localhost/' });
