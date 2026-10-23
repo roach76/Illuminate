@@ -55,6 +55,7 @@ const SYSTEM_GLOSS = [
   { en: 'Zi Wei Life Palace', zh: '紫微命宫', tipEN: 'The Zi Wei Dou Shu palace (of 12) that holds your Life position - the starting point for reading the rest of that chart.', tipZH: '紫微斗数十二宫中安放「命」的宫位——解读该命盘其余部分的起点。' },
   { en: 'QMDJ Life Palace', zh: '奇门命宫', tipEN: 'Your natal palace (1-9) on the Qi Men Dun Jia grid.', tipZH: '您在奇门遁甲九宫格中的本命宫位（1至9宫）。' },
   { en: 'Ba Zhai Kua', zh: '八宅命卦', tipEN: 'Your Eight Mansions (Ba Zhai) Kua number. It places you in the East or West group, which sets your favourable and unfavourable directions.', tipZH: '您的八宅命卦数。它决定您属东四命或西四命，进而决定吉凶方位。' },
+  { en: 'Children Affinity', zh: '子女缘', tipEN: 'How strongly your chart speaks to children: the traditional children stars (Officer/Killings for a male chart, Output stars for a female chart) counted across the chart, plus the Hour Pillar (children palace). A reflective indicator - never a number of children or a statement about fertility.', tipZH: '命盘对子女的呼应程度：统计命盘中的传统子女星（男命为官杀，女命为食伤），并参考时柱（子女宫）。仅为反思性指标——并非子女数量，亦不涉及生育能力。' },
   { en: 'Zodiac', zh: '生肖', tipEN: 'Your Chinese zodiac animal, with its three-harmony allies and its clashing sign.', tipZH: '您的生肖，及其三合盟友与相冲的生肖。' }
 ];
 function glossTipAttr(label) {
@@ -1499,6 +1500,7 @@ function buildNativeProfileSections(prefix) {
         { label: bt('Zi Wei Life Palace','紫微命宫'), value: p.ziwei.lifePalaceName },
         { label: bt('QMDJ Life Palace','奇门命宫'), value: `${bt('Palace','宫位')} ${p.qmdj.natalPalace} (${p.palaceName})` },
         { label: bt('Ba Zhai Kua','八宅命卦'), value: `${p.kuaGroup} - ${bt('Kua','卦')} ${p.kuaNum}` },
+        { label: bt('Children Affinity','子女缘'), value: childrenAffinityValue(p) },
       ], { columns: 2 });
       w.addSpacer(2);
       w.addDivider();
@@ -1511,6 +1513,7 @@ function buildNativeProfileSections(prefix) {
         [bt('QMDJ Life Palace','奇门命宫'), `${bt('Palace','宫位')} ${p.qmdj.natalPalace} (${p.palaceName})`],
         [bt('Bone Weight','骨重'), `${p.boneWeight.displayStr} — ${bt(bwTierForSummary.tier, bwTierForSummary.tierZh)}`],
         [bt('Ba Zhai Kua','八宅命卦'), `${p.kuaGroup} - ${bt('Kua','卦')} ${p.kuaNum}`],
+        [bt('Children Affinity','子女缘'), childrenAffinityValue(p)],
         [bt('I Ching Natal Hexagram','易经本命卦'), `#${p.hexNo}`],
         [bt('Numerology Life Path','生命数字'), `${p.life} (${bt('Lucky Number','幸运号码')}: ${p.lifeLuckyNumber})`],
         [bt('Sun Sign','太阳星座'), p.astro.en],
@@ -1585,7 +1588,7 @@ function buildNativeProfileSections(prefix) {
         `${bt('Life Favorable Colors','人生幸运颜色')}: ${p.luckyColor}\n` +
         `${bt('Life Unfavorable Colors','人生忌用颜色')}: ${p.avoidColor}\n` +
         `${bt('Expected Life Expectancy Range','预期寿命范围')}: ${p.lifespan} ${bt('Yrs','岁')}\n` +
-        `${bt('Number of Children Affinity','子女缘数')}: ${p.children}\n` +
+        `${bt('Children Affinity','子女缘')}: ${childrenAffinityValue(p)}\n` +
         `${bt('Marriage Activation Ages','婚姻催动年龄')}: ~${p.mAge1}, ~${p.mAge2}`
       );
       w.addTable(
@@ -7444,6 +7447,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
         ${overviewTile(bt('Zi Wei Life Palace','紫微命宫'), p.ziwei.lifePalaceName)}
         ${overviewTile(bt('QMDJ Life Palace','奇门命宫'), `${bt('Palace','宫位')} ${p.qmdj.natalPalace} (${p.palaceName})`)}
         ${overviewTile(bt('Ba Zhai Kua','八宅命卦'), `${p.kuaGroup} - ${bt('Kua','卦')} ${p.kuaNum}`)}
+        ${overviewTile(bt('Children Affinity','子女缘'), childrenAffinityValue(p), true)}
         <!-- BUG FIX (reported: "both summary on app and pdf does not have the flying star"): every
              other major system this app computes had a tile here except Flying Star (玄空飞星), which
              previously only appeared deep inside the Feng Shui tab. The Flying Star PROPERTY chart
@@ -7477,6 +7481,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       ${summaryRow(bt('BaZi Day Master','八字日主'), `${stems[p.bazi.dayStemIdx]} (${stemCN[p.bazi.dayStemIdx]})`)}
       ${summaryRow(bt('Life Expectancy','预期寿命'), `${p.lifespan} ${bt('Yrs','岁')}`)}
       ${summaryRow(bt('Bone Weight','骨重'), `${p.boneWeight.displayStr} — ${bt(bwTierForSummary.tier, bwTierForSummary.tierZh)}`)}
+      ${summaryRow(bt('Children Affinity','子女缘'), childrenAffinityValue(p))}
       ${summaryRow(bt('I Ching Natal Hexagram','易经本命卦'), `#${p.hexNo}`)}
     </article>
   `;
@@ -7688,7 +7693,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
          • <strong>${bt('Life Favorable Colors','人生幸运颜色')}:</strong> <span style="color:green; font-weight:bold">${p.luckyColor}</span><br>
          • <strong>${bt('Life Unfavorable Colors','人生忌用颜色')}:</strong> <span style="color:red; font-weight:bold">${p.avoidColor}</span><br>
          • <strong>${bt('Expected Life Expectancy Range','预期寿命范围')}:</strong> ${p.lifespan} ${bt('Yrs','岁')}<br>
-         • <strong>${bt('Number of Children Affinity','子女缘数')}:</strong> ${p.children}<br>
+         • <strong>${bt('Children Affinity','子女缘')}:</strong> ${childrenAffinityValue(p)}<br>
          • <strong>${bt('Marriage Activation Ages','婚姻催动年龄')}:</strong> ~${p.mAge1}, ~${p.mAge2}<br>
       </div>
       ${daYunHTML}
@@ -8916,8 +8921,8 @@ function generateSummaryCardHTML(focusP, compareP, isBusiness, isZh, prefix = 'i
   // 13 tiles, in the exact same order, so a person sees the identical set of facts (and the identical
   // sequence) whether they're looking at the landing page or the chart page.
   const keyFactsLabels = bt(
-    ['Gregorian Birth','Lunar Birth','Day Master','Bone Weight','Da Yun (Current Cycle)','Life Expectancy','Numerology Life Path','Sun Sign','I Ching Hexagram','Zi Wei Life Palace','QMDJ Life Palace','Ba Zhai Kua','Flying Star (Annual)'],
-    ['阳历出生','农历出生','日主','骨重','大运（当前）','预期寿命','生命数字','太阳星座','易经卦象','紫微命宫','奇门命宫','八宅命卦','飞星（流年）']
+    ['Gregorian Birth','Lunar Birth','Day Master','Bone Weight','Da Yun (Current Cycle)','Life Expectancy','Numerology Life Path','Sun Sign','I Ching Hexagram','Zi Wei Life Palace','QMDJ Life Palace','Ba Zhai Kua','Flying Star (Annual)','Children Affinity'],
+    ['阳历出生','农历出生','日主','骨重','大运（当前）','预期寿命','生命数字','太阳星座','易经卦象','紫微命宫','奇门命宫','八宅命卦','飞星（流年）','子女缘']
   );
   const fsOvLanding = computeFlyingStarTemporalOverlay(new Date());
   // UPDATED (reported: "summary card sequence on landing page and summary cards sequence on chart
@@ -8950,6 +8955,7 @@ function generateSummaryCardHTML(focusP, compareP, isBusiness, isZh, prefix = 'i
       ${keyFactsTile(keyFactsLabels[9], focusP.ziwei.lifePalaceName)}
       ${keyFactsTile(keyFactsLabels[10], `${bt('Palace','宫位')} ${focusP.qmdj.natalPalace} (${focusP.palaceName})`)}
       ${keyFactsTile(keyFactsLabels[11], `${focusP.kuaGroup} - ${bt('Kua','卦')} ${focusP.kuaNum}`)}
+      ${keyFactsTile(keyFactsLabels[13], childrenAffinityValue(focusP), true)}
       ${keyFactsTile(keyFactsLabels[12], flyingStarNatureLine(fsOvLanding.annual.chart.center), true)}
     </div>
   `;
@@ -9668,7 +9674,8 @@ const GOD_CAREER_HINTS = {
 //    metaphysical calculation, so it is deliberately NOT used here; only its real part (a day whose branch
 //    clashes or combines with your Day Branch) is.
 //  - Values the app itself computes from simple arithmetic rather than a tradition (Life Expectancy,
-//    children count, marriage ages) are not used.
+//    marriage ages) are not used. (Children Affinity used to be one of these; it is now chart-derived - see
+//    computeChildrenAffinity.)
 // ============================================================================================
 const INTEG_SYSTEMS = [
   { key: 'bazi', tab: 'core', en: 'BaZi / Ming Li', zh: '八字／命理' },
@@ -9694,17 +9701,60 @@ const INTEG_SYSTEMS = [
 const INTEG_TAB_LABEL = { core: { en: 'Core', zh: '核心' }, timing: { en: 'Timing', zh: '运势' }, environment: { en: 'Environment', zh: '环境' }, more: { en: 'More', zh: '更多' } };
 const INTEG_DOMAINS = [
   { key: 'life', en: 'Life', zh: '人生' }, { key: 'career', en: 'Career', zh: '事业' }, { key: 'wealth', en: 'Wealth', zh: '财富' },
-  { key: 'luck', en: 'Luck', zh: '财运' }, { key: 'love', en: 'Love', zh: '感情' }, { key: 'health', en: 'Health', zh: '健康' }, { key: 'now', en: 'Now', zh: '当下' },
+  { key: 'luck', en: 'Luck', zh: '财运' }, { key: 'love', en: 'Love', zh: '感情' }, { key: 'children', en: 'Children', zh: '子女' }, { key: 'health', en: 'Health', zh: '健康' }, { key: 'now', en: 'Now', zh: '当下' },
   { key: 'thisYear', en: 'This year', zh: '今年' }, { key: 'nextYear', en: 'Next year', zh: '明年' },
   { key: 'thisCycle', en: 'This cycle', zh: '现行运' }, { key: 'nextCycle', en: 'Next cycle', zh: '下一运' }
 ];
 const INTEG_SANHE_GROUPS = [[8, 0, 4], [2, 6, 10], [5, 9, 1], [11, 3, 7]];
-const INTEG_ZW_PALACE_DOMAIN = { 0: 'life', 2: 'love', 4: 'wealth', 5: 'health', 8: 'career', 10: 'luck' };
+const INTEG_ZW_PALACE_DOMAIN = { 0: 'life', 2: 'love', 3: 'children', 4: 'wealth', 5: 'health', 8: 'career', 10: 'luck' };
 
 // Language-resolved at call time (QMDJ_DIR_LABEL is resolved once at load, so it would not follow a language switch).
 function integPalaceDir(pal) {
   const m = { 1: ['North', '北'], 2: ['Southwest', '西南'], 3: ['East', '东'], 4: ['Southeast', '东南'], 6: ['Northwest', '西北'], 7: ['West', '西'], 8: ['Northeast', '东北'], 9: ['South', '南'] }[pal];
   return m ? bt(m[0], m[1]) : '';
+}
+
+// ENHANCEMENT (reported: "I do not see children affinity in any of the summary cards. Include them for all
+// relevant areas"): "Children Affinity" used to be a bare number (`p.children`, derived from `sum % 3` - date
+// arithmetic, not a chart calculation) shown only inside the Ming Li section. It is now derived from the chart:
+//  - BaZi: the traditional "children stars" (子女星) - Officer/Killings (官杀) for a male chart, Output
+//    (食神/伤官) for a female chart - counted across the visible stems and every hidden stem; the Hour Pillar is
+//    the traditional children palace, so stars sitting there are called out. Tier: 3+ stars Strong, 1-2
+//    Moderate, 0 Light (the same count-based style as the Karmic Debt flags - a disclosed heuristic, not a
+//    classical numeric standard).
+//  - Zi Wei Dou Shu: the Children palace (子女宫, 3 steps back from the Life palace) and its stars.
+//  - Western astrology: planets in the 5th house (children, creativity) when a birth latitude is on file.
+// It is a reflective indicator of how strongly the chart speaks to children - never a number of children or a
+// statement about fertility.
+function computeChildrenAffinity(p) {
+  const bazi = p.bazi, tg = computeAllTenGods(bazi);
+  const starAbbrs = p.isMale ? ['DO', '7K'] : ['EG', 'HO'];
+  const isStar = (g) => starAbbrs.includes(g.abbr);
+  const visible = [['year', tg.yearStem], ['month', tg.monthStem], ['hour', tg.hourStem]].filter(([, g]) => isStar(g)).map(([k]) => k);
+  const hiddenByPillar = { year: tg.yearHidden, month: tg.monthHidden, day: tg.dayHidden, hour: tg.hourHidden };
+  let hiddenCount = 0, hourHidden = 0;
+  Object.keys(hiddenByPillar).forEach(k => hiddenByPillar[k].forEach(h => { if (isStar(h.tenGod)) { hiddenCount++; if (k === 'hour') hourHidden++; } }));
+  const total = visible.length + hiddenCount;
+  const hourStars = (visible.includes('hour') ? 1 : 0) + hourHidden;
+  const tier = total >= 3 ? { key: 'strong', en: 'Strong', zh: '较旺', pol: 1 } : (total >= 1 ? { key: 'moderate', en: 'Moderate', zh: '中等', pol: 0 } : { key: 'light', en: 'Light', zh: '偏淡', pol: -1 });
+  let zwChildren = null;
+  if (p.ziwei) {
+    const sig = zwdsPalaceStarSignals(p, 3);
+    const kindPol = (k) => ((k === 'auspicious' || k === 'lucky') ? 1 : ((k === 'malefic' || k === 'void') ? -1 : 0));
+    const minor = sig.stars.filter(x => !x.isMajor);
+    zwChildren = { main: sig.stars.filter(x => x.isMajor), minor, net: minor.reduce((n, x) => n + kindPol((ZWDS_MINOR_STARS[x.key] || {}).kind), 0) };
+  }
+  let house5 = null;
+  if (p.houses && p.bazi.birthMomentUTC) {
+    const natal = computeFullNatalChart(p.bazi.birthMomentUTC), ph = computeNatalPointHouses(natal, p.houses);
+    house5 = NATAL_ASPECT_PLANET_ORDER.filter(k => ph[k] === 5);
+  }
+  return { total, hourStars, tier, starFamily: p.isMale ? { en: 'Officer/Killings (官杀)', zh: '官杀' } : { en: 'Eating God/Hurting Officer (食伤)', zh: '食伤' }, zwChildren, house5 };
+}
+// Short value for the summary cards / Ming Li line, e.g. "Moderate (2 children stars)".
+function childrenAffinityValue(p) {
+  const c = computeChildrenAffinity(p);
+  return bt(`${c.tier.en} (${c.total} children star${c.total === 1 ? '' : 's'})`, `${c.tier.zh}（子女星${c.total}颗）`);
 }
 
 function xiangShuPersonKey(rawProfile) {
@@ -9743,6 +9793,11 @@ function buildIntegratedSignals(p, prefix) {
     add('bazi', 'love', hasPartnerStar ? 1 : 0, hasPartnerStar
       ? bt(`Your Day Branch (spouse palace) carries your traditional partner star (${p.isMale ? 'Wealth' : 'Officer'}) - a genuine capacity for a committed partnership.`, `您的日支（配偶宫）藏有传统配偶星（${p.isMale ? '财星' : '官星'}）——具备维系稳定关系的真实能力。`)
       : bt('Your Day Branch (spouse palace) does not carry your traditional partner star directly - relationships lean on other chart factors.', '您的日支（配偶宫）未直接藏有传统配偶星——感情更多取决于命盘其他因素。'));
+    const ca = computeChildrenAffinity(p);
+    add('bazi', 'children', ca.tier.pol, bt(`Children Affinity: ${ca.tier.en} - ${ca.total} children star${ca.total === 1 ? '' : 's'} (${ca.starFamily.en}) across the visible and hidden stems of your chart.`, `子女缘：${ca.tier.zh}——命盘天干与藏干中共有${ca.total}颗子女星（${ca.starFamily.zh}）。`));
+    add('bazi', 'children', ca.hourStars >= 1 ? 1 : 0, ca.hourStars >= 1
+      ? bt(`Your Hour Pillar (the traditional children palace) carries ${ca.hourStars} of those children star${ca.hourStars === 1 ? '' : 's'} - the palace itself is supported.`, `您的时柱（传统子女宫）藏有其中${ca.hourStars}颗子女星——子女宫本身得到支持。`)
+      : bt('Your Hour Pillar (the traditional children palace) carries no children star itself - the connection runs through the rest of the chart.', '您的时柱（传统子女宫）本身不带子女星——相关呼应来自命盘其他部分。'));
     yearList.forEach((y, i) => {
       const fv = i === 0 ? a.curYearFavourable : a.nextYearFavourable;
       const god = i === 0 ? a.curYearGod : a.nextYearGod, pl = i === 0 ? a.curYearPillar : a.nextYearPillar;
@@ -9802,7 +9857,7 @@ function buildIntegratedSignals(p, prefix) {
     if (k.indirectResourceStrong) { flagged = true; add('karmic', 'life', 0, bt(`Indirect Resource (偏印) appears ${k.indirectResourceCount} times - a strong intuitive/spiritual pull that benefits from concrete, grounded routines.`, `偏印出现${k.indirectResourceCount}次——直觉与灵性倾向强烈，宜以具体、接地气的生活习惯加以平衡。`)); }
     k.voidPillars.forEach(vp => {
       flagged = true;
-      const dom = vp.key === 'month' ? 'career' : (vp.key === 'day' ? 'love' : 'life');
+      const dom = vp.key === 'month' ? 'career' : (vp.key === 'day' ? 'love' : (vp.key === 'hour' ? ['life', 'children'] : 'life'));
       add('karmic', dom, -1, bt(`Kong Wang (void) falls on your ${vp.labelEN} - results tied to that area tend to need more effort than they return.`, `空亡落在您的${vp.labelZH}——与该领域相关的成果，往往付出多于回报。`));
     });
     if (!flagged) add('karmic', 'life', 1, bt('No major karmic-debt markers found (no repeated Seven Killings, Day/Year clash or void pillar).', '未发现明显的业力负债标记（无七杀重叠、日年冲或空亡之柱）。'));
@@ -9912,7 +9967,7 @@ function buildIntegratedSignals(p, prefix) {
     const zw = p.ziwei, lifeB = zw.lifePalaceBranchIdx;
     const pName = (step) => bt(ZWDS_PALACE_NAMES_BY_STEP_BACK[step].en, ZWDS_PALACE_NAMES_BY_STEP_BACK[step].zh);
     const kindPol = (k) => ((k === 'auspicious' || k === 'lucky') ? 1 : ((k === 'malefic' || k === 'void') ? -1 : 0));
-    const palaceDefs = [[0, 'life'], [8, 'career'], [4, 'wealth'], [2, 'love'], [5, 'health'], [10, 'luck']];
+    const palaceDefs = [[0, 'life'], [8, 'career'], [4, 'wealth'], [2, 'love'], [3, 'children'], [5, 'health'], [10, 'luck']];
     palaceDefs.forEach(([step, dom]) => {
       const sig = zwdsPalaceStarSignals(p, step);
       const main = sig.stars.filter(s => s.isMajor), minor = sig.stars.filter(s => !s.isMajor);
@@ -9997,7 +10052,7 @@ function buildIntegratedSignals(p, prefix) {
     });
     if (p.houses) {
       const ph = computeNatalPointHouses(natal, p.houses);
-      [[2, 'wealth'], [6, 'health'], [7, 'love'], [10, 'career']].forEach(([h, dom]) => {
+      [[2, 'wealth'], [5, 'children'], [6, 'health'], [7, 'love'], [10, 'career']].forEach(([h, dom]) => {
         const occ = NATAL_ASPECT_PLANET_ORDER.filter(k => ph[k] === h).map(k => bt(PLANET_INFO_FULL[k].en, PLANET_INFO_FULL[k].zh));
         add('western', dom, 0, bt(`House ${h} (${HOUSE_LIFE_AREAS[h].en}): ${occ.length ? 'occupied by ' + occ.join(', ') + ' - that area carries extra weight in your chart' : 'no natal planet sits here, so it reads mainly through its ruling sign'}.`, `第${h}宫（${HOUSE_LIFE_AREAS[h].zh}）：${occ.length ? '有' + occ.join('、') + '落入——此领域在您的命盘中分量较重' : '无本命行星落入，主要依该宫所属星座解读'}。`));
       });
@@ -10116,7 +10171,7 @@ function renderIntegratedCoverage(integ) {
     return `<tr><td style="padding:3px 6px;border:1px solid #eee;font-size:10px;white-space:nowrap">${bt(sys.en, sys.zh)}</td><td style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt(INTEG_TAB_LABEL[sys.tab].en, INTEG_TAB_LABEL[sys.tab].zh)}</td><td style="padding:3px 6px;border:1px solid #eee;font-size:10px">${status}${notes[sys.key] ? `<div style="color:var(--muted)">${notes[sys.key]}</div>` : ''}</td></tr>`;
   }).join('');
   return `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%"><tr style="background:#f4f4f4"><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('System', '体系')}</th><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('Tab', '分页')}</th><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('Used in this reading', '本解读中的使用情况')}</th></tr>${rows}</table></div>
-    <div style="margin-top:6px;font-size:11px;color:var(--muted)">${bt('Not used on purpose: Life Expectancy, children count and marriage ages (the app derives these from simple arithmetic rather than a metaphysical calculation).', '刻意不采用：预期寿命、子女数与结婚年龄（本应用以简单算术而非玄学推算得出）。')}</div>`;
+    <div style="margin-top:6px;font-size:11px;color:var(--muted)">${bt('Not used on purpose: Life Expectancy and marriage ages (the app derives these from simple arithmetic rather than a metaphysical calculation).', '刻意不采用：预期寿命与结婚年龄（本应用以简单算术而非玄学推算得出）。')}</div>`;
 }
 
 function generateDetailedReading(p, prefix) {
@@ -10276,7 +10331,7 @@ function generateDetailedReading(p, prefix) {
     ${sectionHTML(2, 'Career', '事业', careerHTML + blk('career', 'Career', '事业'))}
     ${sectionHTML(3, 'Wealth', '财富', wealthHTML + blk('wealth', 'Wealth', '财富'))}
     ${sectionHTML(4, 'Luck - Direct vs Indirect Wealth vs Windfall', '财运 - 正财、偏财与横财', luckHTML + blk('luck', 'Luck', '财运'))}
-    ${sectionHTML(5, 'Love', '感情', loveHTML + blk('love', 'Love', '感情'))}
+    ${sectionHTML(5, 'Love', '感情', loveHTML + blk('love', 'Love', '感情') + blk('children', 'Children', '子女'))}
     ${sectionHTML(6, 'Health - What to Watch', '健康 - 需留意事项', healthHTML + blk('health', 'Health', '健康'))}
     ${sectionHTML(7, `Current Year Summary - ${a.nowYear}`, `今年运势 - ${a.nowYear}年`, curYearHTML + blk('thisYear', 'This year', '今年') + blk('now', 'Right now & the near term', '当下与近期'))}
     ${sectionHTML(8, 'Current Cycle Summary', '现行大运总览', curCycleHTML + blk('thisCycle', 'This cycle', '现行运'))}
