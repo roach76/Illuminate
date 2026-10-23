@@ -1,6 +1,6 @@
 # Illuminate — Regression Test Suite
 
-107 test files (`test_*.js`), ~1973 individual checks as of this migration. Each file is self-contained
+108 test files (`test_*.js`), ~2031 individual checks as of this migration. Each file is self-contained
 and follows the same pattern (see `CLAUDE.md` at the repo root for the two recurring gotchas to know
 about when writing new ones).
 

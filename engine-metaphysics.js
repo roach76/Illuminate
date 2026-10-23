@@ -3049,6 +3049,81 @@ function compute3YearDaYunMonthly(p) {
   return { months, best, worst };
 }
 
+// ENHANCEMENT (reported: "for Da Yun, the annual reason for the 3 year forecast is generic. It should
+// show full deep details like the annual details"): the 3-Year Monthly Da Yun table above gives each
+// month only a one-line "dominant stage" reason. This is the BaZi counterpart of the Western
+// computeAnnualDeepReading below: for the current calendar year and the following (yearsCount - 1),
+// it gathers everything needed for a full per-year deep reading, all from real, already-verified
+// building blocks - nothing new is invented:
+//   - the year's Liu Nian pillar (computeYearPillar - this app's existing Gregorian-year convention,
+//     not the Li Chun boundary), its Ten God relative to the Day Master (getTenGod) and its hidden-stem
+//     Ten Gods (HIDDEN_STEMS_BY_BRANCH);
+//   - the Da Yun pillar governing that year (same calendarYearStart lookup as compute3YearDaYunMonthly);
+//   - Useful God (用神) favourability of the year's element, from the SAME computeUsefulGod verdict the
+//     Detailed Reading already uses (so the two readings can never disagree about "favourable");
+//   - the year's branch against each of the 4 natal branches and the governing Da Yun branch, using
+//     only the Six Clash (六冲) / Six Harmony (六合) tables already used by every other BaZi scorer here;
+//   - all 12 calendar months of that year scored by the SAME scoreDaYunMonth cascade as the table, so the
+//     year's overall tier is the mean of its 12 monthly scores on the SAME 7-tier scale - the annual
+//     view and the monthly table cannot contradict each other.
+// Returns raw data only (indices/flags); wording is composed at render time in app.js where bt() exists.
+function computeDaYunAnnualDeepReading(p, yearsCount) {
+  yearsCount = yearsCount || 3;
+  const bazi = p.bazi;
+  const dmStemIdx = bazi.dayStemIdx;
+  const analysis = computeDetailedReadingAnalysis(p);
+  const favourableElems = analysis.usefulGod.favourable;
+  const natalBranches = [
+    { key: 'year', idx: bazi.yearBranchIdx }, { key: 'month', idx: bazi.monthBranchIdx },
+    { key: 'day', idx: bazi.dayBranchIdx }, { key: 'hour', idx: bazi.hourBranchIdx }
+  ];
+  const cycles = p.daYunPillars || [];
+  const cycleFor = (year) => cycles.find(dy => year >= dy.calendarYearStart && year < dy.calendarYearStart + 10)
+    || cycles[cycles.length - 1] || { stemIdx: dmStemIdx, branchIdx: bazi.dayBranchIdx, age: 0, calendarYearStart: year };
+  const relate = (a, b) => (SIX_CLASH[a] === b ? 'clash' : (SIX_HARMONY[a] === b ? 'harmony' : (a === b ? 'same' : null)));
+  const nowY = new Date().getFullYear();
+  const years = [];
+  for (let i = 0; i < yearsCount; i++) {
+    const year = nowY + i;
+    const liuNian = computeYearPillar(year);
+    const cycle = cycleFor(year);
+    const god = getTenGod(dmStemIdx, liuNian.stemIdx);
+    const hiddenGods = HIDDEN_STEMS_BY_BRANCH[liuNian.branchIdx].map(si => ({ stemIdx: si, tenGod: getTenGod(dmStemIdx, si) }));
+    const interactions = [];
+    natalBranches.forEach(nb => {
+      const type = relate(liuNian.branchIdx, nb.idx);
+      if (type) interactions.push({ palace: nb.key, natalBranchIdx: nb.idx, type });
+    });
+    const cycleInteraction = relate(liuNian.branchIdx, cycle.branchIdx);
+    const months = [];
+    for (let m = 1; m <= 12; m++) {
+      const liuYue = computeLiuYuePillar(liuNian.stemIdx, m);
+      const scored = scoreDaYunMonth(dmStemIdx, bazi.dayBranchIdx, cycle.stemIdx, cycle.branchIdx, liuNian.stemIdx, liuNian.branchIdx, liuYue.stemIdx, liuYue.branchIdx);
+      months.push({
+        year, month: m, liuYueStemIdx: liuYue.stemIdx, liuYueBranchIdx: liuYue.branchIdx,
+        liuYueGod: getTenGod(dmStemIdx, liuYue.stemIdx),
+        dayBranchRelation: relate(liuYue.branchIdx, bazi.dayBranchIdx),
+        score: scored.total, tier: classifyMonthlyTier(scored.total), dominant: scored.dominant
+      });
+    }
+    const avg = months.reduce((s, m) => s + m.score, 0) / months.length;
+    const sorted = months.slice().sort((a, b) => b.score - a.score);
+    const tierCounts = {};
+    months.forEach(m => { tierCounts[m.tier.en] = (tierCounts[m.tier.en] || 0) + 1; });
+    years.push({
+      year, liuNian, god, hiddenGods,
+      elemIdx: computeElementIdxFromStemIdx(liuNian.stemIdx),
+      favourable: favourableElems.includes(computeElementIdxFromStemIdx(liuNian.stemIdx)),
+      cycle, cycleGod: getTenGod(dmStemIdx, cycle.stemIdx), cycleInteraction,
+      isCycleStartYear: year === cycle.calendarYearStart,
+      isCycleFinalYear: year === cycle.calendarYearStart + 9 && cycles.some(dy => dy.calendarYearStart === cycle.calendarYearStart + 10),
+      interactions, months, avgScore: avg, tier: classifyMonthlyTier(avg),
+      bestMonths: sorted.slice(0, 2), worstMonths: sorted.slice(-2).reverse(), tierCounts
+    });
+  }
+  return { years, usefulGod: analysis.usefulGod, dmStrength: analysis.dmStrength };
+}
+
 // ============================================================
 // ENHANCEMENT (this round): matching 3-Year Monthly Western Astrology reading
 // ============================================================

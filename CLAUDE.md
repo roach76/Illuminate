@@ -33,6 +33,14 @@ files over `http://` instead of `file://` (service workers and some browser APIs
    changed file for manual download; in this repo, a normal commit is the equivalent — commit the
    changed files together with the matching `UPDATE_NOTES_AND_INSTRUCTIONS.md` entry.
 
+7. **Mirror the finished work into the parent folder for testing.** Working happens in
+   `Working Folder`; once any work is complete (and the regression suite passes), copy the project
+   files into its parent folder (`..`, i.e. `c:\Users\roywl\Roach\Personal\Illuminate`), which is the
+   copy the user tests from. Use a copy that never deletes (so nothing in the parent is lost), and skip
+   `.git` and `node_modules`:
+   `robocopy "<Working Folder>" "<parent>" /E /XD .git node_modules /XF "*.zip"` (exit codes 0-7 are
+   success). Report that the sync was done.
+
 ## Repository layout
 
 ```
@@ -49,7 +57,7 @@ start_illuminate.bat             Windows convenience launcher (calls the same se
 test data.xlsx                   Reference test-case dataset (see standing instruction #1)
 UPDATE_NOTES_AND_INSTRUCTIONS.md Full dated changelog/history — READ THIS FIRST for project context
 package.json                     devDependency (jsdom) + `npm test` wiring for the regression suite
-tests/                           Regression test suite (107 files, ~1973 checks) — see tests/README.md
+tests/                           Regression test suite (108 files, ~2031 checks) — see tests/README.md
 CLAUDE.md                        This file
 SESSION_HISTORY_SUMMARY.md       Condensed narrative summary of the engagement to date
 ```
@@ -69,7 +77,7 @@ npm install        # installs jsdom (the only hard dependency; playwright is opt
 npm test           # or: bash tests/run_all_tests.sh
 ```
 
-Expected baseline at the time of this migration: **1973 checks, 0 failed** across 107 test files (2 of
+Expected baseline at the time of this migration: **2031 checks, 0 failed** across 108 test files (2 of
 them — the Playwright/Chromium browser probes — report 0/0 unless `playwright` and a running local
 server are set up; see `tests/README.md`).
 
@@ -105,6 +113,11 @@ full incident write-ups)
   HTML string unless the 4th arg `rawOnly` is `true`, in which case it returns a plain object — always
   `JSON.stringify()` a rawOnly result before running regex checks against it, or `.test()` silently
   coerces the object to `"[object Object]"`.
+- **Line endings:** every file in this repo is LF. The Edit tool can silently rewrite a file as CRLF on
+  Windows, which breaks the tests that match `app.js` source text (they fail with "located the real ...
+  block" / "evalmachine" errors). After editing `app.js`, check it has no carriage returns (for example
+  `node -e "console.log(require('fs').readFileSync('app.js','utf8').includes('\r\n'))"` should print
+  false) and convert back to LF if not. `core.autocrlf` is set to `input` locally.
 - **This app performs no geocoding** on free-text addresses by design — address-based readings use
   digit/elemental analysis (plus Ba Zhai/Flying Star when a facing direction is on file), not distance or
   location lookups.

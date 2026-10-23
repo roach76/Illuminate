@@ -4603,6 +4603,7 @@ function trPill(text) {
   if ((m = text.match(/^(English|Chinese) Name vs BaZi Compatibility$/))) {
     return `${m[1] === 'Chinese' ? '中文' : '英文'}姓名与八字契合度 / ${text}`;
   }
+  if ((m = text.match(/^(\d{4}) Da Yun Annual Deep Reading$/))) return `${m[1]}年大运流年深度解读 / ${text}`;
   if (text === 'Combined Name (English + Chinese) vs BaZi Compatibility') return `中英文姓名综合八字契合度 / ${text}`;
   // Handle "X Compatibility - Life/Business Partner" pattern dynamically
   if ((m = text.match(/^(.+?) - (Life Partner|Business Partner)$/))) {
@@ -6146,6 +6147,49 @@ function generateDeepAnalysisData(type, p, extraData = null, rawOnly = false) {
         bt('This is a simplified elemental heuristic (not a full "Useful God" analysis) - treat a 1-tier difference between neighbouring months as noise, not a meaningful signal.', '此为简化的五行推算（并非完整「用神」分析）——相邻月份间一级的评级差异应视为误差范围，而非具有实际意义的信号。'),
         bt('This window is always "now through +3 years", not fixed calendar dates - recompute whenever you revisit this reading in a later month.', '此窗口恒为「现在起至未来三年」，并非固定日期——日后重新查看此解读时应重新计算。')
       ];
+  } else if (type === 'dayun_annual_deep' && extraData && extraData.yearData) {
+      // ENHANCEMENT (reported: "for Da Yun, the annual reason for the 3 year forecast is generic. It
+      // should show full deep details like the annual details"). See computeDaYunAnnualDeepReading
+      // (engine-metaphysics.js) for the data and describeDaYunAnnualYear for the wording. The
+      // 7-part card caps each list at 3 items, so the full per-domain and per-palace detail lives in
+      // `traits` (uncapped), with the three most decision-relevant points in Highlights.
+      const yd = extraData.yearData;
+      const d = describeDaYunAnnualYear(p, yd);
+      const good = yd.months.filter(m => m.score >= 1.5).length, caution = yd.months.filter(m => m.score < -1.5).length;
+      chars = bt(`${yd.year} (${d.pillar}): ${yd.tier.en} overall - ${good} of 12 months favourable or better, ${caution} cautionary or worse. The year's stem is ${yd.god.en} to your Day Master.`,
+        `${yd.year}年（${d.pillar}）：整体评级${yd.tier.zh}——12个月中${good}个吉月以上、${caution}个慎月以下。流年天干相对您的日主为「${yd.god.cn}」。`);
+      exp = bt(`Built from your own BaZi chart, not a generic yearly template: the Liu Nian (flowing year) pillar's Ten God relative to your Day Master and its hidden stems, whether its element is favourable per your Useful God (用神) verdict, the Da Yun pillar governing the year, and whether the year's branch clashes or combines (Six Clash 六冲 / Six Harmony 六合) with each of your four natal branches and the Da Yun branch. The overall tier is the average of all 12 calendar months of the year, each scored by the same Day Master - Da Yun - Liu Nian - Liu Yue cascade as the 36-month table above, so the two can never disagree.`,
+        `依据您本人的八字命盘，而非通用的年度模板：流年柱相对日主的十神及其藏干、其五行依您的用神判断是否有利、当年当令的大运柱，以及流年地支与您本命四支及大运地支是否相冲（六冲）或相合（六合）。整体评级取该年12个公历月份的平均，各月以与上方36个月表格相同的「日主—大运—流年—流月」连锁方式评分，因此两者不会互相矛盾。`);
+      const L = (en, zh, text) => `<strong>${bt(en, zh)}:</strong> ${text}`;
+      traits = [
+        L('Year theme', '年度主题', d.theme),
+        L('Career', '事业', d.career),
+        L('Wealth', '财运', d.wealth),
+        L('Relationships', '感情', d.love),
+        L('Health', '健康', d.health),
+        L('Natal chart interactions', '与本命盘的互动', d.interactionLines.join(' ')),
+        L('Da Yun context', '大运背景', d.cycleLine)
+      ].join('<br>');
+      hl = [
+        bt(`Overall tier: ${yd.tier.en}. ${d.usefulLine}`, `整体评级：${yd.tier.zh}。${d.usefulLine}`),
+        d.interactionLines[0],
+        bt(`Best month: ${d.monthLine(yd.bestMonths[0])}`, `最佳月份：${d.monthLine(yd.bestMonths[0])}`)
+      ];
+      pos = [
+        bt(`Most supportive: ${d.monthLine(yd.bestMonths[0])}`, `最有利：${d.monthLine(yd.bestMonths[0])}`),
+        bt(`Next best: ${d.monthLine(yd.bestMonths[1])}`, `次佳：${d.monthLine(yd.bestMonths[1])}`),
+        yd.favourable ? bt("This year's element is on your Useful God favourable side.", '本年五行属您用神的有利一方。') : bt('Even in a harder year, the strongest months above are the best windows for important moves.', '即使是较吃力的一年，上述最强月份仍是推进重要事项的较佳时机。')
+      ];
+      neg = [
+        bt(`Most cautioned: ${d.monthLine(yd.worstMonths[0])}`, `最需留意：${d.monthLine(yd.worstMonths[0])}`),
+        bt(`Next most cautioned: ${d.monthLine(yd.worstMonths[1])}`, `次需留意：${d.monthLine(yd.worstMonths[1])}`),
+        yd.favourable ? bt('A favourable year can still contain individually hard months - see the cautioned months above.', '有利之年中仍可能有个别较吃力的月份——请参见上述需留意的月份。') : bt("This year's element is on the unfavourable side per your Useful God verdict - pace commitments deliberately.", '依您的用神判断，本年五行偏不利——请有意识地控制承诺的步伐。')
+      ];
+      cau = [
+        bt('Simplified heuristic: this uses a baseline Useful God (用神) method and the six clash/harmony relations only - it does not cover special "Follow the Structure" (从格) charts, Climate Adjustment (调候), three-harmony/penalty/harm relations, or a full annual-pillar-vs-natal-pillar stem analysis.', '简化推算：此处仅采用基础用神方法及六冲／六合关系，不涵盖特殊「从格」命局、调候、三合／刑／害关系，亦未做流年柱与本命各柱天干的完整分析。'),
+        bt("The year is the Gregorian calendar year (this app's Liu Nian convention), not the Li Chun (立春) boundary, and months follow the calendar month - so dates near early February may feel like the neighbouring year's pillar.", '本年以公历年计（本应用的流年惯例），而非立春分界，月份亦依公历月——因此接近二月初的日期可能更接近相邻年份的流年特征。'),
+        bt('A traditional symbolic framework for reflection, not a deterministic forecast, and never medical, legal or financial advice.', '此为传统象征性框架，供反思参考，并非决定性预测，亦绝非医疗、法律或财务建议。')
+      ];
   } else if (type === 'astro_3year_monthly' && extraData && extraData.forecast) {
       // ENHANCEMENT (this round): matching 3-Year Monthly Western Astrology reading - genuine
       // Sun-sign-transit + Element/Modality relationship reading (see engine-metaphysics.js's honesty
@@ -6463,6 +6507,137 @@ function generateAnnualDeepReadingHTML(p) {
       ${generateDeepAnalysisData('astro_annual_deep', p, { title: `${yearData.year} Annual Deep Reading`, yearData })}
     </article>`;
   }).join('') + `<div style="margin-top:4px">${renderRatingLegend(WESTERN_5TIER_LABELS)}${calculatedAsOfLine()}</div>`;
+}
+
+// ENHANCEMENT (reported: "for Da Yun, the annual reason for the 3 year forecast is generic. It should
+// show full deep details like the annual details"): BaZi counterpart of generateAnnualDeepReadingHTML
+// above - one card per year (current + next 2) with a tier badge, a 12-month strip, and a 7-part deep
+// analysis. All data comes from computeDaYunAnnualDeepReading (engine-metaphysics.js); the text below
+// only translates that data into plain-language, bilingual wording. The Ten-God-family meanings are the
+// standard Ten God correspondences (Peer/Rob Wealth = peers & rivals; Eating God/Hurting Officer =
+// output; Direct/Indirect Wealth = money; Direct Officer/Seven Killings = authority & pressure;
+// Direct/Indirect Resource = support & learning) and the male-Wealth / female-Officer "partner star"
+// convention - the same conventions the Detailed Reading already relies on.
+const DAYUN_GOD_FAMILY = { P: 'peer', RW: 'peer', EG: 'output', HO: 'output', DW: 'wealth', IW: 'wealth', '7K': 'officer', DO: 'officer', IR: 'resource', DR: 'resource' };
+const DAYUN_FAMILY_TEXT = {
+  peer: {
+    theme: { en: 'Peers, rivals and collaborators come to the foreground. Your own element is reinforced, which brings confidence and self-reliance - along with competition for the same opportunities and resources.', zh: '同侪、对手与合作者成为焦点。您自身的五行得到强化，带来自信与自立，同时也意味着需与他人争夺相同的机会与资源。' },
+    career: { en: 'Collaboration, networking and holding your own among equals are favoured; expect colleagues or competitors at your level rather than a clear hierarchy.', zh: '利于合作、人脉经营与在同侪中站稳脚跟；身边多为同级的同事或竞争者，而非明确的上下层级。' },
+    wealth: { en: 'Income depends on your own effort. Shared money, guarantees, or lending to friends carry extra leakage risk this year (Rob Wealth especially).', zh: '收入主要靠自身努力。共同出资、担保或借钱给朋友，今年额外有破财风险（尤其劫财年）。' },
+    health: { en: 'Generally supportive for your constitution; the usual risk is overextending because you feel strong - keep regular rest.', zh: '整体对体质偏扶助；常见风险是自觉体力充沛而过度消耗，宜维持规律作息。' }
+  },
+  output: {
+    theme: { en: 'Self-expression, creativity and visible output are emphasised. Energy flows outward from you - good for producing, speaking, teaching and performing, but it also draws down your reserves.', zh: '自我表达、创意与成果输出被突显。能量向外流出——利于创作、表达、教学与展现，但同时也消耗您的储备。' },
+    career: { en: 'Favours creative work, communication, skills-based roles and visible projects; Hurting Officer in particular can chafe against authority and rules, so tact with superiors matters.', zh: '利于创意工作、沟通、技能型职务与可见的项目；尤其伤官易与权威及规则摩擦，对上司需多加圆融。' },
+    wealth: { en: 'Income tends to follow output - what you produce, sell or teach. Gains are earned through effort rather than arriving passively.', zh: '收入随输出而来——取决于您的产出、销售或教学。所得需靠付出，而非被动而至。' },
+    health: { en: 'Output draws on your own element; watch for fatigue, over-talking or burning out through constant giving - rest is a real input this year.', zh: '输出会消耗您自身的五行；留意疲劳、言多耗气，或因持续付出而透支——今年休息本身就是必要的投入。' }
+  },
+  wealth: {
+    theme: { en: 'Money, opportunities and practical results are highlighted. Your Day Master is exerting itself on the outside world - active and productive, sometimes stretching.', zh: '财富、机会与务实成果成为重点。日主向外施力——积极、有产出，有时也较吃力。' },
+    career: { en: 'Business, deals, sales and results-oriented roles are active. Opportunities appear, but they ask for effort and follow-through.', zh: '商业、交易、销售与重成果的职务较为活跃。机会会出现，但需要付出努力并坚持到底。' },
+    wealth: { en: 'Direct Wealth (正财) favours steady pay, savings and contracts; Indirect Wealth (偏财) favours deals, side income and investment - with more variance.', zh: '正财利于稳定薪资、储蓄与合约；偏财利于交易、副业收入与投资——但波动较大。' },
+    health: { en: 'Sustained effort for results can strain a weaker constitution; pace yourself and avoid chasing every opportunity.', zh: '为成果持续奔忙，可能加重体质较弱者的负担；宜掌握节奏，不必追逐每一个机会。' }
+  },
+  officer: {
+    theme: { en: 'Responsibility, structure and outside pressure are emphasised. External forces press on the Day Master - demanding, but also the source of promotion and recognition when well supported.', zh: '责任、规范与外在压力被突显。外力施压于日主——要求较高，但在获得足够支持时，也是晋升与受肯定的来源。' },
+    career: { en: 'Direct Officer (正官) points to formal authority, titles, rules and recognition; Seven Killings (七杀) to urgency, high-stakes pressure and competition. Promotion and scrutiny can arrive together.', zh: '正官指向正式权威、职衔、规则与肯定；七杀则指向紧迫、高压与竞争。晋升与受关注可能同时到来。' },
+    wealth: { en: 'Income is tied to position and responsibility; sudden obligations or penalties are the risk to guard against.', zh: '收入与职位及责任挂钩；须防范突发的义务或处罚。' },
+    health: { en: 'Pressure lands on your own system - stress, sleep and tension-related complaints are the typical pattern; schedule recovery deliberately.', zh: '压力直接落在自身系统——压力、睡眠与紧绷相关的不适是典型模式；请有意识地安排恢复时间。' }
+  },
+  resource: {
+    theme: { en: 'Support, learning and protection are emphasised. Something generates and nourishes your Day Master - a consolidating, receptive year more than a dramatic one.', zh: '扶助、学习与庇护被突显。有力量生扶滋养日主——是偏向巩固与接纳的一年，而非剧烈变动的一年。' },
+    career: { en: 'Study, qualifications, mentors and stable backing are favoured; Direct Resource (正印) suits formal learning and credentials, Indirect Resource (偏印) unconventional skills and intuition (but can bring over-thinking or withdrawal).', zh: '利于进修、资格认证、贵人与稳定的后盾；正印适合正规学习与证照，偏印适合非传统技能与直觉（但可能带来过度思虑或封闭）。' },
+    wealth: { en: 'Wealth grows through preparation and support more than aggressive pursuit; avoid relying too heavily on others (Indirect Resource can also slow action).', zh: '财富更多来自准备与扶助，而非强势追逐；避免过度依赖他人（偏印亦可能拖慢行动）。' },
+    health: { en: 'Generally restorative; the risk is over-thinking and inactivity rather than depletion.', zh: '整体偏向修复；风险在于思虑过多与活动不足，而非耗损。' }
+  }
+};
+const DAYUN_PALACE_LABEL = {
+  year: { en: 'Year Pillar (ancestry, social circle, early life)', zh: '年柱（祖上、社交圈、早年）' },
+  month: { en: 'Month Pillar (career, parents)', zh: '月柱（事业、父母）' },
+  day: { en: 'Day Branch (self and spouse palace)', zh: '日支（自身与配偶宫）' },
+  hour: { en: 'Hour Pillar (children, later life)', zh: '时柱（子女、晚年）' }
+};
+const DAYUN_ELEM_EN = ['Wood', 'Fire', 'Earth', 'Metal', 'Water'];
+const DAYUN_ELEM_ZH = ['木', '火', '土', '金', '水'];
+
+function describeDaYunAnnualYear(p, yd) {
+  const pillar = `${stemCN[yd.liuNian.stemIdx]}${branchCN[yd.liuNian.branchIdx]}`;
+  const god = yd.god, fam = DAYUN_GOD_FAMILY[god.abbr], F = DAYUN_FAMILY_TEXT[fam];
+  const tr = (o) => bt(o.en, o.zh);
+  const hiddenEN = yd.hiddenGods.map(h => h.tenGod.en).join(', '), hiddenZH = yd.hiddenGods.map(h => h.tenGod.cn).join('、');
+  const godLine = bt(`${yd.year} Liu Nian ${pillar}: the year's stem is ${god.en} (${god.cn}) relative to your Day Master; the branch's hidden stems add ${hiddenEN}.`,
+    `${yd.year}年流年${pillar}：流年天干相对您的日主为「${god.cn}」；地支藏干另带「${hiddenZH}」。`);
+  const elemEN = DAYUN_ELEM_EN[yd.elemIdx], elemZH = DAYUN_ELEM_ZH[yd.elemIdx];
+  const usefulLine = yd.favourable
+    ? bt(`Per Useful God (用神) analysis, this year's ${elemEN} element sits on your favourable side - conditions work with you rather than only neutrally.`, `依用神分析，本年${elemZH}属您的有利一方——环境确实对您有利，而非仅止于中性。`)
+    : bt(`Per Useful God (用神) analysis, this year's ${elemEN} element sits on your unfavourable side - worth extra care and deliberate pacing rather than assuming momentum will carry it.`, `依用神分析，本年${elemZH}属您的不利一方——宜格外谨慎、主动调节步伐，而非仅靠顺势而为。`);
+  const cy = yd.cycle, cyPillar = `${stemCN[cy.stemIdx]}${branchCN[cy.branchIdx]}`;
+  let cycleLine = bt(`Governing Da Yun: ${cyPillar} (${yd.cycleGod.en}), ages ${cy.age}-${cy.age + 9}, ${cy.calendarYearStart}-${cy.calendarYearStart + 9}.`, `当令大运：${cyPillar}（${yd.cycleGod.cn}），${cy.age}至${cy.age + 9}岁，${cy.calendarYearStart}至${cy.calendarYearStart + 9}年。`);
+  if (yd.isCycleStartYear) cycleLine += bt(' This is the first year of this Luck Pillar - a genuine threshold year rather than more of the same.', ' 此为该大运的第一年——是真正的转折年，而非上一运程的延续。');
+  if (yd.isCycleFinalYear) cycleLine += bt(' This is the final year of this Luck Pillar; the next cycle begins next year, so expect themes to start shifting.', ' 此为该大运的最后一年；下一运程明年开始，主题将逐渐转换。');
+  const lnB = branchCN[yd.liuNian.branchIdx];
+  if (yd.cycleInteraction === 'clash') cycleLine += bt(` The year's ${lnB} also clashes the Da Yun branch ${branchCN[cy.branchIdx]} - the year pulls against the decade's backdrop.`, ` 本年地支${lnB}亦冲大运地支${branchCN[cy.branchIdx]}——流年与十年大势相互牵制。`);
+  else if (yd.cycleInteraction === 'harmony') cycleLine += bt(` The year's ${lnB} also combines with the Da Yun branch ${branchCN[cy.branchIdx]} (Six Harmony 六合) - the year and the decade pull in the same direction.`, ` 本年地支${lnB}亦与大运地支${branchCN[cy.branchIdx]}六合——流年与十年大势方向一致。`);
+  else if (yd.cycleInteraction === 'same') cycleLine += bt(` The year's branch repeats the Da Yun branch ${branchCN[cy.branchIdx]}, so the decade's own themes are emphasised.`, ` 本年地支与大运地支${branchCN[cy.branchIdx]}相同，十年运程自身的主题被加强。`);
+
+  const interactionLines = yd.interactions.map(ia => {
+    const nb = branchCN[ia.natalBranchIdx], label = tr(DAYUN_PALACE_LABEL[ia.palace]);
+    const taiSuiEN = ia.palace === 'year' ? (ia.type === 'clash' ? ' This is the traditional "clashing Tai Sui" (冲太岁) pattern.' : ia.type === 'same' ? ' This is a traditional "Tai Sui year" (值太岁) for your zodiac.' : '') : '';
+    const taiSuiZH = ia.palace === 'year' ? (ia.type === 'clash' ? ' 此即传统所谓「冲太岁」。' : ia.type === 'same' ? ' 此即传统所谓您生肖的「值太岁」之年。' : '') : '';
+    if (ia.type === 'clash') return bt(`Liu Nian ${lnB} clashes (Six Clash 六冲) your natal ${nb} in the ${label} - disruption, change or friction in that life area.${taiSuiEN}`, `流年${lnB}冲（六冲）您本命${nb}，落于${label}——该生活领域易有变动、波折或摩擦。${taiSuiZH}`);
+    if (ia.type === 'harmony') return bt(`Liu Nian ${lnB} combines (Six Harmony 六合) with your natal ${nb} in the ${label} - a bonding, cooperative pull in that area, though harmony can also mean feeling tied down.`, `流年${lnB}与您本命${nb}六合，落于${label}——该领域有凝聚、合作之力，但六合也可能带来被牵绊之感。`);
+    return bt(`Liu Nian ${lnB} repeats your natal ${nb} in the ${label} - that area is emphasised and its themes tend to recur.${taiSuiEN}`, `流年${lnB}与您本命${nb}相同，落于${label}——该领域被加强，相关主题容易反复出现。${taiSuiZH}`);
+  });
+  if (!interactionLines.length) interactionLines.push(bt(`Liu Nian ${lnB} neither clashes nor combines with any of your four natal branches - no branch-level disruption to the natal chart this year.`, `流年${lnB}与您本命四支既无相冲亦无六合——本年对命局地支层面无明显扰动。`));
+
+  const partnerFam = p.isMale ? 'wealth' : 'officer';
+  const love = fam === partnerFam
+    ? bt('Your traditional partner star (Wealth for a male chart, Officer for a female chart) is activated this year, so relationship matters - meeting someone, deepening or testing a commitment - tend to come into focus.', '您的传统配偶星（男命为财星，女命为官星）今年被引动，因此感情事务——结识对象、深化或考验承诺——往往成为焦点。')
+    : (fam === 'peer' && p.isMale)
+      ? bt('Peer/Rob Wealth stars compete with the Wealth star (the traditional partner star for a male chart), so rivals, third parties or divided attention are the characteristic relationship risk; the branch interactions below refine this.', '比劫与财星相争（男命财星为传统配偶星），因此情敌、第三者或注意力分散是此类年份在感情上的典型风险；下方地支互动可作进一步印证。')
+      : bt("This year's stem does not directly activate your traditional partner star, so relationship themes depend mainly on the branch interactions below.", '本年天干并未直接引动您的传统配偶星，因此感情主题主要取决于下方的地支互动。');
+  const dayIa = yd.interactions.find(ia => ia.palace === 'day');
+  const loveFull = love + (dayIa ? ' ' + (dayIa.type === 'clash'
+    ? bt('The clash on your Day Branch (spouse palace) raises the odds of change or friction at home or in the closest relationship.', '日支（配偶宫）受冲，家中或最亲密关系出现变动或摩擦的机会增加。')
+    : dayIa.type === 'harmony' ? bt('The combination on your Day Branch (spouse palace) favours closeness and commitment.', '日支（配偶宫）逢合，利于亲近与承诺。')
+    : bt('The repeat on your Day Branch (spouse palace) puts the closest relationship in sharper focus.', '日支（配偶宫）逢伏，使最亲密的关系更受关注。')) : '');
+  const bodySys = WUXING_BODY_SYSTEMS[computeElementIdxFromStemIdx(p.bazi.dayStemIdx)];
+  const healthFull = tr(F.health) + ' ' + bt(`Traditionally, your own ${bodySys.elemEN} element corresponds to ${bodySys.en} - the system to keep an eye on. (Traditional symbolic framework for reflection only, never medical advice.)`, `依传统，您自身的${bodySys.elemZH}对应${bodySys.zh}——是值得留意的系统。（此为传统象征性框架，仅供反思，绝非医疗建议。）`);
+
+  const stageEN = { dm_dayun: 'Day Master vs Da Yun', dayun_liunian: 'Da Yun vs Liu Nian', liunian_liuyue: 'Liu Nian vs Liu Yue' };
+  const stageZH = { dm_dayun: '日主与大运', dayun_liunian: '大运与流年', liunian_liuyue: '流年与流月' };
+  const monthLine = (m) => {
+    const lyPillar = `${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]}`;
+    const rel = WUXING_REL_LABEL[m.dominant.stemRel];
+    const dayRel = m.dayBranchRelation === 'clash' ? bt(' The month branch also clashes your Day Branch.', ' 当月地支亦冲您的日支。')
+      : m.dayBranchRelation === 'harmony' ? bt(' The month branch also combines with your Day Branch.', ' 当月地支亦与您的日支相合。') : '';
+    return bt(`${m.year}-${String(m.month).padStart(2, '0')} (Liu Yue ${lyPillar}, ${m.liuYueGod.en}): ${m.tier.en} - strongest factor ${stageEN[m.dominant.key]}, which ${rel.en}.${dayRel}`,
+      `${m.year}-${String(m.month).padStart(2, '0')}（流月${lyPillar}，${m.liuYueGod.cn}）：${m.tier.zh}——主导因素为${stageZH[m.dominant.key]}，${rel.zh}。${dayRel}`);
+  };
+  return {
+    pillar, godLine, usefulLine, cycleLine, interactionLines, monthLine,
+    theme: tr(F.theme), career: tr(F.career), wealth: tr(F.wealth), love: loveFull, health: healthFull
+  };
+}
+
+function generateDaYunAnnualDeepReadingHTML(p) {
+  if (!p?.bazi || !p.daYunPillars) return '';
+  const reading = computeDaYunAnnualDeepReading(p, 3);
+  return reading.years.map(yd => {
+    const d = describeDaYunAnnualYear(p, yd);
+    const good = yd.months.filter(m => m.score >= 1.5).length, caution = yd.months.filter(m => m.score < -1.5).length;
+    const strip = yd.months.map(m => `<span title="${m.year}-${String(m.month).padStart(2, '0')} ${bt(m.tier.en, m.tier.zh)}" style="display:inline-block;min-width:26px;text-align:center;margin:1px;padding:2px 3px;border-radius:6px;background:${m.tier.color};color:#fff;font-size:9px;font-weight:700">${m.month}<br>${bt(m.tier.abbr, m.tier.abbrZh)}</span>`).join('');
+    return `<article class="reading">
+      <span class="pill">${trPill(`${yd.year} Da Yun Annual Deep Reading`)}</span>
+      <div style="display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap">
+        <span style="display:inline-block;color:#fff;background:${yd.tier.color};padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700">${bt(yd.tier.en, yd.tier.zh)}</span>
+        <span style="font-size:11px;color:var(--muted)">${bt(`${d.pillar} year · ${good} favourable, ${caution} cautionary month(s) of 12`, `${d.pillar}年 · 12个月中${good}个吉月、${caution}个慎月`)}</span>
+      </div>
+      <div class="calc-box" style="font-size:11px;line-height:1.6">${d.godLine}<br>${d.usefulLine}<br>${d.cycleLine}</div>
+      <div style="margin:6px 0">${strip}</div>
+      ${generateDeepAnalysisData('dayun_annual_deep', p, { title: `${yd.year} Da Yun Annual Deep Reading`, yearData: yd })}
+    </article>`;
+  }).join('') + `<div style="margin-top:4px">${renderRatingLegend(MONTHLY_TIER_LABELS)}${calculatedAsOfLine()}</div>`;
 }
 
 // Monthly Deep Reading: current year + the following year (24 months, per the request), rendered as a
@@ -7450,8 +7625,14 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
   const dayunStageNameZH = { dm_dayun: '日主与大运', dayun_liunian: '大运与流年', liunian_liuyue: '流年与流月' };
   const dayun3yrRows = dayun3yr.months.map(m => {
     const isBest = m === dayun3yr.best, isWorst = m === dayun3yr.worst;
-    const reasonEN = `${dayunStageNameEN[m.dominant.key]}: ${WUXING_REL_LABEL[m.dominant.stemRel].en}`;
-    const reasonZH = `${dayunStageNameZH[m.dominant.key]}：${WUXING_REL_LABEL[m.dominant.stemRel].zh}`;
+    // ENHANCEMENT (reported: the reason was generic): now also names the actual Liu Yue pillar, its Ten
+    // God relative to this profile's Day Master, and any clash/combination of that month's branch with
+    // the Day Branch - so each row's reason is specific to this person and month. The full per-year
+    // reading is in the Da Yun Annual Deep Reading cards above this table.
+    const monthGod = getTenGod(p.bazi.dayStemIdx, m.liuYueStemIdx);
+    const monthDayRel = SIX_CLASH[m.liuYueBranchIdx] === p.bazi.dayBranchIdx ? 'clash' : (SIX_HARMONY[m.liuYueBranchIdx] === p.bazi.dayBranchIdx ? 'harmony' : null);
+    const reasonEN = `${dayunStageNameEN[m.dominant.key]}: ${WUXING_REL_LABEL[m.dominant.stemRel].en}. Liu Yue ${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]} = ${monthGod.en}${monthDayRel === 'clash' ? '; clashes your Day Branch' : monthDayRel === 'harmony' ? '; combines with your Day Branch' : ''}.`;
+    const reasonZH = `${dayunStageNameZH[m.dominant.key]}：${WUXING_REL_LABEL[m.dominant.stemRel].zh}。流月${stemCN[m.liuYueStemIdx]}${branchCN[m.liuYueBranchIdx]}＝${monthGod.cn}${monthDayRel === 'clash' ? '；冲您的日支' : monthDayRel === 'harmony' ? '；与您的日支相合' : ''}。`;
     return `<tr style="${isBest ? 'background:#e8f5e9' : isWorst ? 'background:#fdeaea' : ''}">
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${m.year}</td>
       <td style="padding:4px 6px;border:1px solid #eee;font-size:10px;text-align:center">${String(m.month).padStart(2,'0')}</td>
@@ -7534,6 +7715,8 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       ${daYunSummaryTable}
       ${daYunBreakdown}
     </article>
+    <h3 style="margin:16px 0 4px">${flipTitle(`Da Yun Annual Deep Reading - Current Year + Next 2 Years (大运流年深度解读)`)}</h3>
+    ${generateDaYunAnnualDeepReadingHTML(p)}
     ${artDaYun3YearMonthly}
     ${artAstro3YearMonthly}
     ${(() => {
