@@ -2586,6 +2586,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
   //    between two DOM elements is found wherever one exists, and the pixel-slice fallback is only ever
   //    reached for a genuinely unsplittable single element that alone exceeds a full page.
   const NATURAL_HEIGHT_SAFE_THRESHOLD = Math.floor(onePageCapacityNaturalPx * 0.45); // ~45% of one page's true capacity
+  // Kept at 4: measured on a real export, raising it to 6-8 roughly doubled the number of capture pieces (195 -> 453) and made page fill WORSE, so the cap stays.
   const MAX_EXPAND_DEPTH = 4; // safety cap - stops recursion from ever running away into deeply nested markup
   const captureUnits = []; // { node, sectionIndex, isFirstOfSection }
   const sectionHasEmittedFirst = [];
@@ -2599,6 +2600,47 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
   // onto the page on its own. A grid/flex-row container's children are laid out horizontally by design,
   // so splitting them into separate capture units always destroys that layout regardless of height -
   // such a container must be captured as ONE atomic unit instead, exactly like the live in-app view.
+  // True for a node that is, or contains, a table, a graphic (svg/canvas/img) or a grid / side-by-side flex
+  // layout - i.e. a "chart" that must never be cut by a page break. See the capture-unit push site below.
+  // Short human-readable label for a capture unit (tag, class, first words) - diagnostics only (see __pdfLayoutLast).
+  function describeCaptureNode(node) {
+    try { return `${String(node.tagName || '').toLowerCase()}${node.className ? '.' + String(node.className).split(' ')[0] : ''} "${(node.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 36)}"`; } catch (e) { return ''; }
+  }
+  // "No-cut zones" for a capture unit: the vertical extents (in CSS px, relative to the unit's own top) of every
+  // chart-like element inside it - svg/canvas/img/table and grid or side-by-side flex layouts. A unit taller than
+  // a page can't avoid being sliced, but PASS 2 uses these extents to choose cut points that fall BETWEEN
+  // charts rather than through one (reported: "charts should always be on the same page and not truncated").
+  // Only measured for units tall enough to ever need slicing, so ordinary small units cost nothing extra.
+  function measureNoCutZones(wrapper) {
+    try {
+      if (!wrapper || wrapper.offsetHeight < onePageCapacityNaturalPx * 0.85) return [];
+      const top = wrapper.getBoundingClientRect().top;
+      const raw = [];
+      wrapper.querySelectorAll('*').forEach(el => {
+        const tag = String(el.tagName).toUpperCase();
+        let chart = ['SVG', 'CANVAS', 'IMG', 'TABLE'].includes(tag);
+        if (!chart && el.children && el.children.length > 1) chart = isSideBySideLayoutContainer(el);
+        if (!chart) return;
+        const r = el.getBoundingClientRect();
+        if (r.height > 4) raw.push([r.top - top, r.bottom - top]);
+      });
+      raw.sort((a, b) => a[0] - b[0]);
+      const merged = [];
+      raw.forEach(z => { const last = merged[merged.length - 1]; if (last && z[0] <= last[1] + 1) last[1] = Math.max(last[1], z[1]); else merged.push([z[0], z[1]]); });
+      return merged;
+    } catch (e) { return []; }
+  }
+  function isChartLikeNode(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.tagName === 'TABLE' || (node.querySelector && node.querySelector('table, svg, canvas, img'))) return true;
+    if (['SVG', 'CANVAS', 'IMG'].includes(String(node.tagName).toUpperCase())) return true;
+    if (isSideBySideLayoutContainer(node)) return true;
+    const all = node.querySelectorAll ? node.querySelectorAll('*') : [];
+    for (let i = 0; i < all.length; i++) {
+      if (all[i].children && all[i].children.length > 1 && isSideBySideLayoutContainer(all[i])) return true;
+    }
+    return false;
+  }
   function isSideBySideLayoutContainer(node) {
     if (!node || node.nodeType !== 1 || typeof window === 'undefined' || !window.getComputedStyle) return false;
     const cs = window.getComputedStyle(node);
@@ -2672,7 +2714,15 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
     return null;
   }
   function splitTableIntoRowChunks(tableNode, capacityNaturalPx) {
-    const rows = Array.from(tableNode.children).filter(c => c.tagName === 'TR');
+    // ROOT-CAUSE FIX (reported: "there are still large blank spaces in the pdf" / "charts ... not truncated"):
+    // this used to read `tableNode.children` and keep only the `<tr>` ones - but a browser ALWAYS inserts an
+    // implicit `<tbody>` when it parses `<table><tr>...` from an HTML string (confirmed live: a table built
+    // that way has exactly one child, TBODY). So `rows` was always empty, this function always returned the
+    // table unsplit, and EVERY table taller than a page fell through to the raw pixel-slice fallback - which
+    // is the real cause of the repeatedly reported "table truncated across pages". `tableNode.rows` is the
+    // standard accessor for a table's own rows (across thead/tbody/tfoot, excluding nested tables), so rows
+    // are found whether or not a tbody is present.
+    const rows = Array.from(tableNode.rows || []);
     if (rows.length <= 1) return [tableNode]; // no separate header + body rows to split between
     const headerRow = rows[0]; // every one of this app's tables opens with one <tr> of <th> cells
     const bodyRows = rows.slice(1);
@@ -2741,14 +2791,19 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
     // above a section's real content this round.
     let effectiveNode = node;
     let unwrapSteps = 0;
-    while (unwrapSteps < 10 && effectiveNode.children && effectiveNode.children.length === 1 && effectiveNode.children[0].nodeType === 1) {
+    // ROOT-CAUSE FIX (second half of the table-truncation bug): a table parsed from HTML always has exactly ONE
+    // child, the implicit <tbody>, so this single-child unwrapping walked straight past the <table> into its
+    // <tbody> (whose 37 rows are many children, so it stopped there). findSoleTable(effectiveNode) below then
+    // saw a TBODY, not a TABLE, and returned null - so no table was EVER split between rows, and every tall
+    // table was cut through the middle by the pixel-slice fallback. Unwrapping now stops AT the table.
+    while (unwrapSteps < 10 && effectiveNode.tagName !== 'TABLE' && effectiveNode.children && effectiveNode.children.length === 1 && effectiveNode.children[0].nodeType === 1) {
       effectiveNode = effectiveNode.children[0];
       unwrapSteps += 1;
     }
     if (naturalHeight > NATURAL_HEIGHT_SAFE_THRESHOLD) {
       const soleTable = findSoleTable(effectiveNode);
       if (soleTable && soleTable.querySelector('tr')) {
-        const tableChunks = splitTableIntoRowChunks(soleTable, onePageCapacityNaturalPx * 0.95);
+        const tableChunks = splitTableIntoRowChunks(soleTable, onePageCapacityNaturalPx * 0.85); // 0.85 (was 0.95): headroom, since the captured size can differ a little from this live-DOM estimate
         if (tableChunks.length > 1 || tableChunks[0] !== soleTable) {
           tableChunks.forEach(chunkTable => {
             const isFirstOfSection = !sectionHasEmittedFirst[sectionIndex];
@@ -2772,7 +2827,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
         const cs = window.getComputedStyle(effectiveNode);
         if (cs.display === 'grid' || cs.display === 'inline-grid') {
           const colCount = (cs.gridTemplateColumns || '').trim().split(/\s+/).filter(Boolean).length;
-          const gridChunks = splitGridIntoRowChunks(effectiveNode, colCount, onePageCapacityNaturalPx * 0.95);
+          const gridChunks = splitGridIntoRowChunks(effectiveNode, colCount, onePageCapacityNaturalPx * 0.8);
           if (gridChunks.length > 1) {
             gridChunks.forEach(chunkNode => {
               const isFirstOfSection = !sectionHasEmittedFirst[sectionIndex];
@@ -2793,7 +2848,11 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
     // before the cap was even checked. Folding `unwrapSteps` into the comparison (and into the depth
     // passed to the recursive call below) makes the cap apply to the effective depth actually reached,
     // not just the count of ordinary recursive calls.
-    const canSplitFurther = (depth + unwrapSteps) < MAX_EXPAND_DEPTH && effectiveNode.children && effectiveNode.children.length > 1 && !isSideBySideLayoutContainer(effectiveNode);
+    // Never descend INTO a table's own parts (table/tbody/thead/tr/td/th): a row or cell captured on its own,
+    // outside its table, loses the table's layout (a lone <tr> measured 259mm tall in a real export). Tables are
+    // only ever split BETWEEN rows, by splitTableIntoRowChunks above, which re-wraps each run of rows in a table.
+    const isTablePart = /^(TABLE|TBODY|THEAD|TFOOT|TR|TD|TH)$/.test(String(effectiveNode.tagName || '').toUpperCase());
+    const canSplitFurther = (depth + unwrapSteps) < MAX_EXPAND_DEPTH && effectiveNode.children && effectiveNode.children.length > 1 && !isSideBySideLayoutContainer(effectiveNode) && !isTablePart;
     if (naturalHeight > NATURAL_HEIGHT_SAFE_THRESHOLD && canSplitFurther) {
       Array.from(effectiveNode.children).forEach(child => expandIntoCaptureUnits(child, sectionIndex, depth + unwrapSteps + 1));
     } else {
@@ -2813,8 +2872,13 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       // flagged here so PASS 2 knows never to pixel-slice it - only a table already split into row-safe
       // chunks above (which is marked noMidSlice at its own push site) is ever candidate for the
       // leftover-room slice, and even then it is never itself re-sliced, only placed as a whole chunk.
-      const noMidSlice = !!(node.tagName === 'TABLE' || (node.querySelector && node.querySelector('table')));
-      captureUnits.push({ node, sectionIndex, isFirstOfSection, noMidSlice });
+      // ENHANCEMENT (reported: "charts should always be on the same page and not truncated"): the same
+      // never-mid-slice protection now covers every CHART, not only tables - any leaf that is, or contains, an
+      // SVG/canvas/image (the natal wheels, hexagram, etc.) or a grid / side-by-side flex layout (the BaZi
+      // four-pillar chart, the QMDJ and Zi Wei palace grids, the Flying Star grids). Such a unit is only ever
+      // placed whole: if it does not fit what is left of the current page it moves, whole, to the next one.
+      const noMidSlice = isChartLikeNode(node);
+      captureUnits.push({ node, sectionIndex, isFirstOfSection, noMidSlice, desc: describeCaptureNode(node) });
     }
   }
   topLevelNodes.forEach((node, sectionIndex) => expandIntoCaptureUnits(node, sectionIndex, 0));
@@ -3141,7 +3205,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
     // Record each member's own rendered offset/height within the batch container AFTER scaling has
     // settled (so the slicing math below matches exactly what gets captured), and BEFORE the capture
     // call - read straight off the live, attached DOM, not guessed from the eventual canvas.
-    const memberBounds = memberWrappers.map(w => ({ top: w.offsetTop, height: w.offsetHeight }));
+    const memberBounds = memberWrappers.map(w => ({ top: w.offsetTop, height: w.offsetHeight, zones: measureNoCutZones(w) }));
     const containerCssHeight = batchContainer.scrollHeight;
 
     const batchCanvas = await new Promise((resolve, reject) => {
@@ -3218,7 +3282,8 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       ctx.fillRect(0, 0, unitCanvas.width, unitCanvas.height);
       ctx.drawImage(batchCanvas, 0, srcY, batchCanvas.width, srcH, 0, 0, batchCanvas.width, srcH);
       const pxPerMm = unitCanvas.width / CONTENT_W_MM;
-      units.push({ sectionIndex: unit.sectionIndex, isFirstOfSection: unit.isFirstOfSection, canvas: unitCanvas, pxPerMm, heightMm: unitCanvas.height / pxPerMm, noMidSlice: !!unit.noMidSlice });
+      const zonesPx = (bounds.zones || []).map(z => [Math.round(z[0] * pxPerCssPxY), Math.round(z[1] * pxPerCssPxY)]);
+      units.push({ zonesPx, sectionIndex: unit.sectionIndex, isFirstOfSection: unit.isFirstOfSection, canvas: unitCanvas, pxPerMm, heightMm: unitCanvas.height / pxPerMm, noMidSlice: !!unit.noMidSlice, desc: unit.desc || '' });
     });
     } finally {
       // Always runs - on success AND on a thrown/rejected capture - so this batch's clones never
@@ -3384,7 +3449,20 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       const nextGroup = placementGroups[groupIdx + 1];
       const sameSectionFollows = nextGroup && nextGroup.members[0].sectionIndex === group.members[group.members.length - 1].sectionIndex;
       const roomAfterGroupMm = CONTENT_H_MM - (currentUsedMm + group.totalHeightMm);
-      if (currentUsedMm > 0 && sameSectionFollows && roomAfterGroupMm < MIN_FIRST_SLICE_MM) {
+      // BUG FIX (reported: "there are still large blank spaces in the pdf"): measured on a real 127-page export,
+      // this look-ahead fired for ANY group followed by more of the same section - including a lone, ordinary
+      // content block that fit the current page perfectly well - and bumped it to a fresh page whenever fewer
+      // than 70mm would remain after it (e.g. 51mm used + a 165mm block = 216mm, leaving 37mm -> whole block
+      // moved, ~80% of the page blank). The rule exists only to stop a short HEADING (plus its one small box)
+      // being stranded at the foot of a page above its real content, so it now applies only to a group that
+      // actually contains a label-sized member; a lone content block just fills the room it fits in.
+      // A label that is attached to its OWN real content inside this same group (heading + the full box that
+      // follows it, e.g. 7mm + 181mm) can never be stranded - they are placed together - so the rule also only
+      // applies when the group is small (a heading plus a short box, <= 90mm), which is exactly the reported
+      // "Cheng Gu Suan Ming heading alone above a mostly-blank page" shape it was written for.
+      const LABEL_MAX_MM = 18; // same bar as LABEL_ORPHAN_MAX_MM in PASS 1 (declared locally so this block stays self-contained)
+      const groupHasLabel = (group.members.length > 1 || group.members[0].heightMm <= LABEL_MAX_MM) && group.totalHeightMm <= 90;
+      if (currentUsedMm > 0 && sameSectionFollows && groupHasLabel && roomAfterGroupMm < MIN_FIRST_SLICE_MM) {
         pages.push(currentPage); currentPage = []; currentUsedMm = 0;
       }
       group.members.forEach(u => {
@@ -3475,7 +3553,7 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
       if (currentUsedMm > 0 && !useLeftoverRoom) { pages.push(currentPage); currentPage = []; currentUsedMm = 0; }
       if (u.isFirstOfSection) sectionStartPage[u.sectionIndex] = pages.length;
       let remainingPx = u.canvas.height, srcYPx = 0;
-      const firstSliceCapPx = useLeftoverRoom ? Math.floor(leftoverRoomMm * u.pxPerMm) : sliceCapPx;
+      let firstSliceCapPx = useLeftoverRoom ? Math.floor(leftoverRoomMm * u.pxPerMm) : sliceCapPx;
       let isFirstSlice = true;
       // BUG FIX (reported directly: "a lot of white space everywhere between sections" - confirmed via
       // the real exported PDF, which showed several pages that were almost entirely blank apart from a
@@ -3504,6 +3582,23 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
           const safeCutPx = findSafeSliceCutPx(u.canvas, desiredCutPx, minCutPx);
           if (safeCutPx > srcYPx) sliceHPx = safeCutPx - srcYPx;
         }
+        // CHARTS ARE NEVER CUT (reported: "charts should always be on the same page and not truncated"): if the
+        // cut would land inside a chart-like region that itself fits on one page, move the cut up to just above
+        // that chart so the whole chart starts on the next page instead. If the chart would then be the very
+        // first thing on this (leftover-room) slice, start a fresh page for it rather than leaving a sliver.
+        if (sliceHPx < remainingPx && u.zonesPx && u.zonesPx.length) {
+          const cutAt = srcYPx + sliceHPx;
+          const zone = u.zonesPx.find(z => z[0] < cutAt && z[1] > cutAt && (z[1] - z[0]) <= sliceCapPx);
+          if (zone) {
+            if (zone[0] > srcYPx + Math.floor(capPx * 0.1)) {
+              sliceHPx = zone[0] - srcYPx;
+            } else if (isFirstSlice && currentUsedMm > 0) {
+              pages.push(currentPage); currentPage = []; currentUsedMm = 0;
+              firstSliceCapPx = sliceCapPx;
+              continue;
+            }
+          }
+        }
         const sliceHMm = sliceHPx / u.pxPerMm;
         currentPage.push({ canvas: u.canvas, srcYPx, srcHPx: sliceHPx, drawYMm: currentUsedMm, heightMm: sliceHMm, pxPerMm: u.pxPerMm, sectionIndex: u.sectionIndex });
         srcYPx += sliceHPx; remainingPx -= sliceHPx;
@@ -3518,6 +3613,16 @@ async function captureChunksIntoPdf(topLevelNodes, wrapperStyle, onProgress) {
     }
   });
   if (currentPage.length) pages.push(currentPage);
+  // Layout diagnostic (read-only, cheap): lets a real export's page-fill be inspected from the console as
+  // `__pdfLayoutLast` - per page, how much of the content height was used, and which units sit on it - so
+  // "large blank spaces" reports can be traced to the exact unit that was pushed to the next page.
+  try {
+    globalThis.__pdfLayoutLast = {
+      contentHMm: CONTENT_H_MM,
+      groups: placementGroups.map(g => ({ sec: g.members[0].sectionIndex, h: Math.round(g.totalHeightMm), n: g.members.length, labelOnly: g.isLabelOnly, noMid: g.members.map(m => !!m.noMidSlice), d: g.members.map(m => m.desc) })),
+      pages: pages.map(pg => ({ usedMm: Math.round(pg.reduce((mx, it) => Math.max(mx, it.drawYMm + it.heightMm), 0)), items: pg.map(it => ({ sec: it.sectionIndex, h: Math.round(it.heightMm) })) }))
+    };
+  } catch (e) { /* diagnostic only */ }
 
   // PASS 3: compute the Table of Contents' own page count, then build the full report - TOC pages
   // first, then every content page, with each TOC entry's page number correctly offset by however

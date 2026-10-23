@@ -51,7 +51,7 @@ if (batchContainerMatch) {
 // if that measurement approach changes (e.g. to getBoundingClientRect deltas), this fix's own
 // position:relative would no longer be load-bearing and this test would need to change with it, not
 // silently pass while checking something that no longer matters.
-check(/const memberBounds = memberWrappers\.map\(w => \(\{ top: w\.offsetTop, height: w\.offsetHeight \}\)\);/.test(src),
+check(/const memberBounds = memberWrappers\.map\(w => \(\{ top: w\.offsetTop, height: w\.offsetHeight(, zones: measureNoCutZones\(w\))? \}\)\);/.test(src),
   'memberBounds still derives from offsetTop/offsetHeight (this fix targets exactly that measurement)');
 
 console.log(`${pass} passed, ${fail} failed`);

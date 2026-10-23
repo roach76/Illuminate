@@ -26,15 +26,15 @@ function check(cond, msg) { if (cond) pass++; else { fail++; console.error('FAIL
 const appSrc = fs.readFileSync(path.join(PROJECT_DIR, 'app.js'), 'utf8');
 
 // --- Source-level checks: the new flag and guard genuinely exist ---
-check(/const noMidSlice = !!\(node\.tagName === 'TABLE' \|\| \(node\.querySelector && node\.querySelector\('table'\)\)\);/.test(appSrc),
-  'a leaf capture unit is flagged noMidSlice when its node is or contains a <table>');
+check(/const noMidSlice = isChartLikeNode\(node\);/.test(appSrc) && /node\.querySelector\('table, svg, canvas, img'\)/.test(appSrc),
+  'a leaf capture unit is flagged noMidSlice when its node is or contains a table, svg, canvas, image or grid/flex layout (isChartLikeNode)');
 check(/noMidSlice: true \}\);\s*\n\s*\}\);\s*\n\s*return;/.test(appSrc) || /noMidSlice: true/.test(appSrc),
   'table-chunk and grid-chunk capture units are flagged noMidSlice at their own push sites');
 check(/const lastMemberNoMidSlice = !!group\.members\[group\.members\.length - 1\]\.noMidSlice;/.test(appSrc),
   'PASS 2 computes lastMemberNoMidSlice for the group about to be considered for leftover-room reuse');
 check(/&& leftoverRoomMmForGroup >= MIN_FIRST_SLICE_MM_LOOKAHEAD && !lastMemberNoMidSlice;/.test(appSrc),
   'worthReusingLeftoverForOverflow requires the last member NOT be noMidSlice - a table is never routed into the slicing branch this way');
-check(/noMidSlice: !!unit\.noMidSlice \}\);/.test(appSrc),
+check(/noMidSlice: !!unit\.noMidSlice(, desc: [^}]*)? \}\);/.test(appSrc),
   'the noMidSlice flag is carried from captureUnits through into the final units[] entries PASS 1/2 consume');
 
 // --- Extract PASS 2 verbatim from the real source ---

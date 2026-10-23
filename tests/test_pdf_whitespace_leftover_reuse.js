@@ -30,7 +30,7 @@ check(/const MIN_FIRST_SLICE_MM = 70;/.test(appSrc), 'MIN_FIRST_SLICE_MM thresho
 check(/const leftoverRoomMm = CONTENT_H_MM - currentUsedMm;/.test(appSrc), 'leftoverRoomMm is computed from remaining page room');
 check(/const useLeftoverRoom = currentUsedMm > 0 && leftoverRoomMm >= MIN_FIRST_SLICE_MM;/.test(appSrc), 'useLeftoverRoom gate exists and requires both existing content and enough room');
 check(/if \(currentUsedMm > 0 && !useLeftoverRoom\) \{ pages\.push\(currentPage\); currentPage = \[\]; currentUsedMm = 0; \}/.test(appSrc), 'the force-flush before an oversized unit is now CONDITIONAL on NOT reusing leftover room (previously unconditional)');
-check(/const firstSliceCapPx = useLeftoverRoom \? Math\.floor\(leftoverRoomMm \* u\.pxPerMm\) : sliceCapPx;/.test(appSrc), 'the first slice is capped to the actual leftover room when reusing it');
+check(/let firstSliceCapPx = useLeftoverRoom \? Math\.floor\(leftoverRoomMm \* u\.pxPerMm\) : sliceCapPx;/.test(appSrc), 'the first slice is capped to the actual leftover room when reusing it');
 check(/drawYMm: currentUsedMm, heightMm: sliceHMm, pxPerMm: u\.pxPerMm, sectionIndex: u\.sectionIndex \}\);\s*\n\s*srcYPx \+= sliceHPx; remainingPx -= sliceHPx;/.test(appSrc), 'every pixel slice draws at drawYMm=currentUsedMm (not hardcoded 0), so a reused-leftover slice draws below existing page content');
 check(/currentUsedMm \+= sliceHMm;/.test(appSrc), 'currentUsedMm accumulates (not overwrites) after the final slice, so a reused-leftover first-and-last slice adds onto existing content instead of discarding it');
 
