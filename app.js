@@ -1072,8 +1072,8 @@ function stripDetailsForPdf(html) {
 
 // Shared by every profile's PDF (main, Life/Business Partner, Children) so the section is identical
 // in heading and format to what the Reading tab shows - see buildProfilePdfHTML.
-function detailedReadingSectionHTML(p) {
-  return wrapSectionCollapsible(`<h2 class="section-header">${bt('Detailed Reading','详细解读')}</h2><article class="reading">${generateDetailedReading(p)}</article>`);
+function detailedReadingSectionHTML(p, prefix) {
+  return wrapSectionCollapsible(`<h2 class="section-header">${bt('Detailed Reading','详细解读')}</h2><article class="reading">${generateDetailedReading(p, prefix)}</article>`);
 }
 
 function buildProfilePdfHTML(prefix) {
@@ -1197,7 +1197,7 @@ function buildProfilePdfHTML(prefix) {
       // directly here and inserted right after the "Details Summary" section (already part of the
       // 'core' tab pulled in above) and before the compatibility summaries appended below - exactly the
       // placement asked for.
-      bodyHTML += detailedReadingSectionHTML(p);
+      bodyHTML += detailedReadingSectionHTML(p, prefix);
       bodyHTML += compatSections;
     } else {
       // ENHANCEMENT (reported: "include a reading for all profiles following the reading format from
@@ -1208,7 +1208,7 @@ function buildProfilePdfHTML(prefix) {
       // profiles via its selector. generateDetailedReading(p) is self-contained per profile, so the
       // identical section is now appended to every other profile's PDF as well, same format and
       // heading as the main profile's.
-      bodyHTML += detailedReadingSectionHTML(p);
+      bodyHTML += detailedReadingSectionHTML(p, prefix);
     }
   } finally {
     pdfExportMode = false;
@@ -1570,7 +1570,7 @@ function buildNativeProfileSections(prefix) {
   sections.push({
     title: bt('Detailed Reading', '详细解读'),
     render(w) {
-      renderHtmlFragmentIntoWriter(w, generateDetailedReading(p));
+      renderHtmlFragmentIntoWriter(w, generateDetailedReading(p, prefix));
     }
   });
 
@@ -8623,6 +8623,8 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
   `;
 
   // BUG 8 FIX: Consolidated + separate Face/Left Palm/Right Palm deep analyses
+  // Face features this person last saved (pressing Generate), so the dropdowns return pre-selected and the Detailed Reading can use them.
+  const savedXs = (u && prof && u.xiangShuByPerson && u.xiangShuByPerson[xiangShuPersonKey(prof)]) || {};
   const artXiangShu = `
     <h2 class="section-header" ${idAttr('xiangshu')}>${flipTitle(`Xiang Shu (相术 - Physiognomy)`)}</h2>
     <article class="reading pdf-exclude">
@@ -8631,35 +8633,35 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       <div class="field-row">
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Face Shape','脸型')}</span>
           <select id="xsFaceInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
-            <option value="" disabled selected>${bt('Select','请选择')}</option>
-            ${Object.keys(XIANG_SHU_FACE_SHAPE_OPTIONS).map(k => `<option value="${k}">${bt(XIANG_SHU_FACE_SHAPE_OPTIONS[k].en, XIANG_SHU_FACE_SHAPE_OPTIONS[k].zh)}</option>`).join('')}
+            <option value="" disabled${savedXs.face ? '' : ' selected'}>${bt('Select','请选择')}</option>
+            ${Object.keys(XIANG_SHU_FACE_SHAPE_OPTIONS).map(k => `<option value="${k}"${savedXs.face === k ? ' selected' : ''}>${bt(XIANG_SHU_FACE_SHAPE_OPTIONS[k].en, XIANG_SHU_FACE_SHAPE_OPTIONS[k].zh)}</option>`).join('')}
           </select>
         </label>
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Eyes','眼睛')}</span>
           <select id="xsEyesInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
-            <option value="" disabled selected>${bt('Select','请选择')}</option>
-            ${Object.keys(XIANG_SHU_EYES_OPTIONS).map(k => `<option value="${k}">${bt(XIANG_SHU_EYES_OPTIONS[k].en, XIANG_SHU_EYES_OPTIONS[k].zh)}</option>`).join('')}
+            <option value="" disabled${savedXs.eyes ? '' : ' selected'}>${bt('Select','请选择')}</option>
+            ${Object.keys(XIANG_SHU_EYES_OPTIONS).map(k => `<option value="${k}"${savedXs.eyes === k ? ' selected' : ''}>${bt(XIANG_SHU_EYES_OPTIONS[k].en, XIANG_SHU_EYES_OPTIONS[k].zh)}</option>`).join('')}
           </select>
         </label>
       </div>
       <div class="field-row">
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Nose','鼻子')}</span>
           <select id="xsNoseInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
-            <option value="" disabled selected>${bt('Select','请选择')}</option>
-            ${Object.keys(XIANG_SHU_NOSE_OPTIONS).map(k => `<option value="${k}">${bt(XIANG_SHU_NOSE_OPTIONS[k].en, XIANG_SHU_NOSE_OPTIONS[k].zh)}</option>`).join('')}
+            <option value="" disabled${savedXs.nose ? '' : ' selected'}>${bt('Select','请选择')}</option>
+            ${Object.keys(XIANG_SHU_NOSE_OPTIONS).map(k => `<option value="${k}"${savedXs.nose === k ? ' selected' : ''}>${bt(XIANG_SHU_NOSE_OPTIONS[k].en, XIANG_SHU_NOSE_OPTIONS[k].zh)}</option>`).join('')}
           </select>
         </label>
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Mouth','嘴巴')}</span>
           <select id="xsMouthInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
-            <option value="" disabled selected>${bt('Select','请选择')}</option>
-            ${Object.keys(XIANG_SHU_MOUTH_OPTIONS).map(k => `<option value="${k}">${bt(XIANG_SHU_MOUTH_OPTIONS[k].en, XIANG_SHU_MOUTH_OPTIONS[k].zh)}</option>`).join('')}
+            <option value="" disabled${savedXs.mouth ? '' : ' selected'}>${bt('Select','请选择')}</option>
+            ${Object.keys(XIANG_SHU_MOUTH_OPTIONS).map(k => `<option value="${k}"${savedXs.mouth === k ? ' selected' : ''}>${bt(XIANG_SHU_MOUTH_OPTIONS[k].en, XIANG_SHU_MOUTH_OPTIONS[k].zh)}</option>`).join('')}
           </select>
         </label>
       </div>
       <label class="field"><span style="font-size:12px">${bt('Chin','下巴')}</span>
         <select id="xsChinInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
-          <option value="" disabled selected>${bt('Select','请选择')}</option>
-          ${Object.keys(XIANG_SHU_CHIN_OPTIONS).map(k => `<option value="${k}">${bt(XIANG_SHU_CHIN_OPTIONS[k].en, XIANG_SHU_CHIN_OPTIONS[k].zh)}</option>`).join('')}
+          <option value="" disabled${savedXs.chin ? '' : ' selected'}>${bt('Select','请选择')}</option>
+          ${Object.keys(XIANG_SHU_CHIN_OPTIONS).map(k => `<option value="${k}"${savedXs.chin === k ? ' selected' : ''}>${bt(XIANG_SHU_CHIN_OPTIONS[k].en, XIANG_SHU_CHIN_OPTIONS[k].zh)}</option>`).join('')}
         </select>
       </label>
       <button class="secondary btnCalcXiangShu" data-prefix="${prefix}" style="width:100%; padding:12px; background:var(--gold); color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:8px">${bt('Generate My Reading','生成我的解读')}</button>
@@ -9642,8 +9644,488 @@ const GOD_CAREER_HINTS = {
   'P': { en: 'independent, self-directed work', zh: '独立自主的工作模式' }
 };
 
-function generateDetailedReading(p) {
+// ============================================================================================
+// INTEGRATED CROSS-SYSTEM SIGNALS FOR THE DETAILED READING
+// (reported: "the detailed reading should take all calculations from the app into consideration and
+// derive the reading. Every component of the app should be taken into consideration including all the
+// core, timing, environment, and more sections. Deeply analyse and ensure this is in place.")
+//
+// Until now generateDetailedReading was built from the BaZi engine alone (Ten Gods, Day Master strength,
+// Useful God, Luck Pillars). buildIntegratedSignals below gathers what EVERY other computed part of the
+// app says about the same life areas, each as a small, traceable "signal": which system, which areas it
+// speaks to, a polarity (+1 supportive / 0 neutral-or-informational / -1 cautionary) ONLY where that
+// system's own already-computed rating gives one, and a plain-language sentence. Nothing is invented:
+// every sentence is built from a value an existing section already computes (cited per block below).
+//
+// HONESTY RULES (standing "nothing half-baked, everything factual and defensible" instruction):
+//  - Polarity comes from the system's OWN rating (door rating, tier, favourable flag, star kind, aspect
+//    type...). Where a system gives no rating, the signal is informational (0), never forced to +/-.
+//  - The per-area tally simply COUNTS those polarities. It is not a probability and not a weighted score:
+//    the systems are different traditions, are not independent of each other (several lean on the same
+//    birth data), and are not claimed to "agree" in any deeper sense - the counts are shown so you can
+//    see where indicators line up or pull apart, nothing more.
+//  - Ze Ri: the app's date-tier function adds a date-arithmetic pattern that is not derived from any
+//    metaphysical calculation, so it is deliberately NOT used here; only its real part (a day whose branch
+//    clashes or combines with your Day Branch) is.
+//  - Values the app itself computes from simple arithmetic rather than a tradition (Life Expectancy,
+//    children count, marriage ages) are not used.
+// ============================================================================================
+const INTEG_SYSTEMS = [
+  { key: 'bazi', tab: 'core', en: 'BaZi / Ming Li', zh: '八字／命理' },
+  { key: 'zodiac', tab: 'core', en: 'Zodiac', zh: '生肖' },
+  { key: 'name', tab: 'core', en: 'Name Analysis', zh: '姓名学' },
+  { key: 'bone', tab: 'core', en: 'Bone Weight', zh: '称骨' },
+  { key: 'karmic', tab: 'core', en: 'Karmic Debt', zh: '因果业力' },
+  { key: 'health', tab: 'core', en: 'Health Diagnosis', zh: '健康诊断' },
+  { key: 'iching', tab: 'core', en: 'I Ching', zh: '易经' },
+  { key: 'xiangshu', tab: 'core', en: 'Xiang Shu', zh: '相术' },
+  { key: 'dayun', tab: 'timing', en: 'Da Yun / Liu Nian', zh: '大运／流年' },
+  { key: 'qmdj', tab: 'timing', en: 'Qi Men Dun Jia', zh: '奇门遁甲' },
+  { key: 'sanshi', tab: 'timing', en: 'San Shi (Da Liu Ren / Tai Yi)', zh: '三式（大六壬／太乙）' },
+  { key: 'zeri', tab: 'timing', en: 'Ze Ri', zh: '择日' },
+  { key: 'daily', tab: 'timing', en: 'Daily & Hourly Highlights', zh: '每日／每时亮点' },
+  { key: 'ziwei', tab: 'environment', en: 'Zi Wei Dou Shu', zh: '紫微斗数' },
+  { key: 'fengshui', tab: 'environment', en: 'Feng Shui (Ba Zhai / Flying Star)', zh: '风水（八宅／飞星）' },
+  { key: 'numerology', tab: 'more', en: 'Numerology', zh: '数字命理' },
+  { key: 'western', tab: 'more', en: 'Western Astrology', zh: '西方占星' },
+  { key: 'assets', tab: 'more', en: 'Personal Assets', zh: '个人资产' },
+  { key: 'compat', tab: 'more', en: 'Partner Compatibility', zh: '伴侣契合度' }
+];
+const INTEG_TAB_LABEL = { core: { en: 'Core', zh: '核心' }, timing: { en: 'Timing', zh: '运势' }, environment: { en: 'Environment', zh: '环境' }, more: { en: 'More', zh: '更多' } };
+const INTEG_DOMAINS = [
+  { key: 'life', en: 'Life', zh: '人生' }, { key: 'career', en: 'Career', zh: '事业' }, { key: 'wealth', en: 'Wealth', zh: '财富' },
+  { key: 'luck', en: 'Luck', zh: '财运' }, { key: 'love', en: 'Love', zh: '感情' }, { key: 'health', en: 'Health', zh: '健康' }, { key: 'now', en: 'Now', zh: '当下' },
+  { key: 'thisYear', en: 'This year', zh: '今年' }, { key: 'nextYear', en: 'Next year', zh: '明年' },
+  { key: 'thisCycle', en: 'This cycle', zh: '现行运' }, { key: 'nextCycle', en: 'Next cycle', zh: '下一运' }
+];
+const INTEG_SANHE_GROUPS = [[8, 0, 4], [2, 6, 10], [5, 9, 1], [11, 3, 7]];
+const INTEG_ZW_PALACE_DOMAIN = { 0: 'life', 2: 'love', 4: 'wealth', 5: 'health', 8: 'career', 10: 'luck' };
+
+// Language-resolved at call time (QMDJ_DIR_LABEL is resolved once at load, so it would not follow a language switch).
+function integPalaceDir(pal) {
+  const m = { 1: ['North', '北'], 2: ['Southwest', '西南'], 3: ['East', '东'], 4: ['Southeast', '东南'], 6: ['Northwest', '西北'], 7: ['West', '西'], 8: ['Northeast', '东北'], 9: ['South', '南'] }[pal];
+  return m ? bt(m[0], m[1]) : '';
+}
+
+function xiangShuPersonKey(rawProfile) {
+  if (!rawProfile) return '';
+  return [rawProfile.birthdate || '', rawProfile.birthtime || '', rawProfile.gender || '', (rawProfile.englishFirstName || '').toLowerCase()].join('|');
+}
+
+function buildIntegratedSignals(p, prefix) {
+  const S = [];
+  const unavailable = [];
+  const add = (sys, doms, pol, text) => { if (text) S.push({ sys, doms: [].concat(doms), pol, text }); };
+  const safe = (sys, fn) => { try { fn(); } catch (e) { unavailable.push(sys); if (typeof console !== 'undefined') console.warn('Integrated reading: ' + sys + ' unavailable -', e && e.message); } };
   const a = computeDetailedReadingAnalysis(p);
+  const bazi = p.bazi, dm = bazi.dayStemIdx, dmElem = a.dmElemIdx;
+  const el = (i) => bt(ELEM_NAMES_EN[i], ELEM_NAMES_ZH[i]);
+  const u = activeUser();
+  const rawProf = prefix ? getProfileByPrefix(prefix) : null;
+  const nowY = new Date().getFullYear();
+  const yearList = [{ dom: 'thisYear', year: nowY, label: bt('this year', '今年') }, { dom: 'nextYear', year: nowY + 1, label: bt('next year', '明年') }];
+  const polOfFav = (fav) => (fav === true ? 1 : (fav === false ? -1 : 0));
+
+  // ---- BaZi (the base reading's own verdicts, surfaced as signals so BaZi appears in the tally too) ----
+  safe('bazi', () => {
+    const fav = a.usefulGod.favourable;
+    const wealthElem = mod(dmElem + 2, 5), officerElem = mod(dmElem + 3, 5);
+    add('bazi', 'life', 0, bt(`${el(dmElem)} Day Master, ${a.dmStrength} by this app's strength heuristic; Useful God favours ${fav.map(el).join(' / ')}.`, `${el(dmElem)}日主，依本应用强弱推算为${{ strong: '较强', balanced: '中等', weak: '偏弱' }[a.dmStrength]}；用神偏重${fav.map(el).join('／')}。`));
+    add('bazi', 'wealth', polOfFav(fav.includes(wealthElem)), fav.includes(wealthElem)
+      ? bt('Wealth (the element your Day Master controls) is on the favourable side of your Useful God - wealth-building works with your structure.', '财星（日主所克之五行）属用神有利一方——求财与您的命局结构相辅相成。')
+      : bt('Wealth (the element your Day Master controls) is on the unfavourable side of your Useful God - wealth pursued without enough support costs more than it returns.', '财星（日主所克之五行）属用神不利一方——缺乏扶助而求财，往往得不偿失。'));
+    add('bazi', 'career', polOfFav(fav.includes(officerElem)), fav.includes(officerElem)
+      ? bt('Officer/Killings (the element that presses on your Day Master) is on the favourable side - structured authority and responsibility tend to work for you.', '官杀（克日主之五行）属有利一方——规范性的权责对您往往有助益。')
+      : bt('Officer/Killings (the element that presses on your Day Master) is on the unfavourable side - hierarchy and pressure cost more than they give unless well supported.', '官杀（克日主之五行）属不利一方——若无足够扶助，层级与压力的代价大于回报。'));
+    const spouseGods = a.spousePalaceGods.map(g => g.abbr);
+    const partnerStar = p.isMale ? ['DW', 'IW'] : ['DO'];
+    const hasPartnerStar = spouseGods.some(x => partnerStar.includes(x));
+    add('bazi', 'love', hasPartnerStar ? 1 : 0, hasPartnerStar
+      ? bt(`Your Day Branch (spouse palace) carries your traditional partner star (${p.isMale ? 'Wealth' : 'Officer'}) - a genuine capacity for a committed partnership.`, `您的日支（配偶宫）藏有传统配偶星（${p.isMale ? '财星' : '官星'}）——具备维系稳定关系的真实能力。`)
+      : bt('Your Day Branch (spouse palace) does not carry your traditional partner star directly - relationships lean on other chart factors.', '您的日支（配偶宫）未直接藏有传统配偶星——感情更多取决于命盘其他因素。'));
+    yearList.forEach((y, i) => {
+      const fv = i === 0 ? a.curYearFavourable : a.nextYearFavourable;
+      const god = i === 0 ? a.curYearGod : a.nextYearGod, pl = i === 0 ? a.curYearPillar : a.nextYearPillar;
+      add('bazi', y.dom, polOfFav(fv), bt(`${y.year} ${stemCN[pl.stemIdx]}${branchCN[pl.branchIdx]}: stem is ${god.en} to your Day Master; its element is ${fv ? 'favourable' : 'unfavourable'} per your Useful God.`, `${y.year}年${stemCN[pl.stemIdx]}${branchCN[pl.branchIdx]}：天干为「${god.cn}」；其五行依用神属${fv ? '有利' : '不利'}。`));
+    });
+    [['thisCycle', a.curCycle, a.curCycleGod, a.curCycleFavourable], ['nextCycle', a.nextCycle, a.nextCycleGod, a.nextCycleFavourable]].forEach(([dom, cy, god, fv]) => {
+      if (cy) add('bazi', dom, polOfFav(fv), bt(`${stemCN[cy.stemIdx]}${branchCN[cy.branchIdx]}, ages ${cy.age}-${cy.age + 9}: stem is ${god.en}; its element is ${fv ? 'favourable' : 'unfavourable'} per your Useful God.`, `${stemCN[cy.stemIdx]}${branchCN[cy.branchIdx]}，${cy.age}至${cy.age + 9}岁：天干为「${god.cn}」；其五行依用神属${fv ? '有利' : '不利'}。`));
+    });
+  });
+
+  // ---- Zodiac ----
+  safe('zodiac', () => {
+    const z = p.zodiacData;
+    const zhAnimals = (str) => String(str).split(',').map(n => { const i = branches.indexOf(n.trim()); return i >= 0 ? branchCN[i] : n.trim(); }).join('、');
+    add('zodiac', 'life', 0, bt(`${p.animal} (${p.animalCN}): three-harmony allies ${z.allies}; hidden ally ${z.hidden}; conflict sign ${z.avoid}.`, `${p.animalCN}（${p.animal}）：三合${zhAnimals(z.allies)}；六合${zhAnimals(z.hidden)}；相冲${zhAnimals(z.avoid)}。`));
+    add('zodiac', 'love', 0, bt(`Easiest partner signs: ${z.allies} (three-harmony) and ${z.hidden} (six-harmony); the sign most likely to create friction is ${z.avoid}.`, `较易相处的生肖：${zhAnimals(z.allies)}（三合）与${zhAnimals(z.hidden)}（六合）；最易产生摩擦的生肖为${zhAnimals(z.avoid)}。`));
+    yearList.forEach(y => {
+      const yb = computeYearPillar(y.year).branchIdx, nb = bazi.yearBranchIdx;
+      let pol = 0, en, zh;
+      if (SIX_CLASH[yb] === nb) { pol = -1; en = `${branchCN[yb]} year clashes your ${branchCN[nb]} zodiac (冲太岁) - a traditional "extra care" year for movement, change and friction.`; zh = `${branchCN[yb]}年冲您的${branchCN[nb]}生肖（冲太岁）——传统上视为宜多加留意变动与摩擦的年份。`; }
+      else if (yb === nb) { pol = 0; en = `${branchCN[yb]} year repeats your own ${branchCN[nb]} zodiac (值太岁) - traditionally treated with extra care, a year of emphasis on you personally.`; zh = `${branchCN[yb]}年与您的${branchCN[nb]}生肖相同（值太岁）——传统上宜多加留意，是特别聚焦于您本人的一年。`; }
+      else if (SIX_HARMONY[yb] === nb) { pol = 1; en = `${branchCN[yb]} year forms a six-harmony (六合) with your ${branchCN[nb]} zodiac - a supportive, cooperative backdrop.`; zh = `${branchCN[yb]}年与您的${branchCN[nb]}生肖六合——背景偏向顺势与合作。`; }
+      else if (INTEG_SANHE_GROUPS.some(g => g.includes(yb) && g.includes(nb))) { pol = 1; en = `${branchCN[yb]} year is in the same three-harmony (三合) group as your ${branchCN[nb]} zodiac - a supportive backdrop.`; zh = `${branchCN[yb]}年与您的${branchCN[nb]}生肖同属三合——背景偏向助力。`; }
+      else { en = `${branchCN[yb]} year has no clash, harmony or repeat with your ${branchCN[nb]} zodiac - no zodiac-level push either way.`; zh = `${branchCN[yb]}年与您的${branchCN[nb]}生肖既无相冲、六合亦无重叠——生肖层面无明显推力。`; }
+      add('zodiac', y.dom, pol, bt(en, zh));
+    });
+  });
+
+  // ---- Name Analysis (Five Grids vs Day Master) ----
+  safe('name', () => {
+    const polOfPct = (pc) => (pc >= 70 ? 1 : (pc <= 45 ? -1 : 0));
+    const gridWord = { favourable: bt('favourable', '吉'), neutral: bt('neutral', '平'), unfavourable: bt('unfavourable', '凶') };
+    const gridName = (g) => { const m = g.name.match(/^(.*?) \((.*?)\)$/); return m ? bt(m[1], m[2]) : g.name; };
+    const gridList = (c) => c.grids.map(g => `${gridName(g)} ${gridWord[g.rating] || g.rating}`).join(', ');
+    if (p.chineseNameCompat) {
+      const c = p.chineseNameCompat;
+      add('name', 'life', polOfPct(c.percent), bt(`Chinese name (${[...c.surnameChars, ...c.givenChars].join('')}): Five Grids ${c.percent}% in harmony with your ${el(dmElem)} Day Master (${c.favCount} favourable, ${c.unfavCount} unfavourable) - ${gridList(c)}.`, `中文姓名（${[...c.surnameChars, ...c.givenChars].join('')}）：五格与您${el(dmElem)}日主契合度${c.percent}%（吉${c.favCount}、凶${c.unfavCount}）——${gridList(c)}。`));
+    }
+    if (p.englishNameCompat) {
+      const c = p.englishNameCompat;
+      add('name', 'life', polOfPct(c.percent), bt(`English name: Five Grids ${c.percent}% in harmony with your ${el(dmElem)} Day Master (${c.favCount} favourable, ${c.unfavCount} unfavourable) - ${gridList(c)}.`, `英文姓名：五格与您${el(dmElem)}日主契合度${c.percent}%（吉${c.favCount}、凶${c.unfavCount}）——${gridList(c)}。`));
+    }
+  });
+
+  // ---- Bone Weight ----
+  safe('bone', () => {
+    const bw = p.boneWeight, tier = getBoneWeightTier(bw.total);
+    add('bone', 'life', bw.total >= 5.0 ? 1 : (bw.total < 3.6 ? -1 : 0), bt(`${bw.displayStr} (${bw.total} Liang) - "${tier.tier}": ${tier.summary}`, `${bw.displayStr.replace('Liang', '两').replace('Qian', '钱')}（${bw.total}两）——「${tier.tierZh}」`));
+  });
+
+  // ---- Karmic Debt ----
+  safe('karmic', () => {
+    const k = computeKarmicDebtAnalysis(p);
+    let flagged = false;
+    if (k.sevenKillingsOverwhelming) { flagged = true; add('karmic', ['life', 'career'], -1, bt(`Seven Killings appears ${k.sevenKillingsCount} times in the chart - a recurring theme of pressure, challenge and responsibility.`, `七杀在命盘中出现${k.sevenKillingsCount}次——持续的压力、挑战与责任主题。`)); }
+    if (k.dayYearClash) { flagged = true; add('karmic', 'life', -1, bt('Your Day and Year pillars clash (六冲) - a pattern of early displacement or distance from family roots.', '您的日柱与年柱相冲（六冲）——早年易有变动，或与家族根源较疏离。')); }
+    if (k.indirectResourceStrong) { flagged = true; add('karmic', 'life', 0, bt(`Indirect Resource (偏印) appears ${k.indirectResourceCount} times - a strong intuitive/spiritual pull that benefits from concrete, grounded routines.`, `偏印出现${k.indirectResourceCount}次——直觉与灵性倾向强烈，宜以具体、接地气的生活习惯加以平衡。`)); }
+    k.voidPillars.forEach(vp => {
+      flagged = true;
+      const dom = vp.key === 'month' ? 'career' : (vp.key === 'day' ? 'love' : 'life');
+      add('karmic', dom, -1, bt(`Kong Wang (void) falls on your ${vp.labelEN} - results tied to that area tend to need more effort than they return.`, `空亡落在您的${vp.labelZH}——与该领域相关的成果，往往付出多于回报。`));
+    });
+    if (!flagged) add('karmic', 'life', 1, bt('No major karmic-debt markers found (no repeated Seven Killings, Day/Year clash or void pillar).', '未发现明显的业力负债标记（无七杀重叠、日年冲或空亡之柱）。'));
+    add('karmic', 'life', 0, bt(`Your Fude Gong (palace of karma/virtue) sits in ${k.fudeGongName}.`, `您的福德宫落于${branchCN[k.fudeGongBranchIdx]}。`));
+  });
+
+  // ---- Health Diagnosis (element balance -> traditional body systems) ----
+  safe('health', () => {
+    const h = computeHealthDiagnosis(p);
+    h.deficient.forEach(i => add('health', 'health', -1, bt(`${el(i)} is thin in your chart (weighted count ${h.elemCount[i]} vs an average of ${h.avgCount.toFixed(1)}) - traditionally tied to ${h.systems[i].en}.`, `${el(i)}在命盘中偏弱（加权计数${h.elemCount[i]}，平均${h.avgCount.toFixed(1)}）——传统上对应${h.systems[i].zh}。`)));
+    h.excessive.forEach(i => add('health', 'health', -1, bt(`${el(i)} is over-concentrated in your chart (weighted count ${h.elemCount[i]} vs an average of ${h.avgCount.toFixed(1)}) - traditionally tied to ${h.systems[i].en}.`, `${el(i)}在命盘中过旺（加权计数${h.elemCount[i]}，平均${h.avgCount.toFixed(1)}）——传统上对应${h.systems[i].zh}。`)));
+    if (!h.deficient.length && !h.excessive.length) add('health', 'health', 1, bt('The five elements are broadly balanced across your chart (none markedly thin or over-concentrated).', '五行在命盘中大致均衡（无明显偏弱或过旺者）。'));
+    if (h.sanShiEcho !== null) add('health', 'health', 0, bt(`Your natal Da Liu Ren Chu Chuan falls on ${el(h.sanShiEcho)}, echoing the imbalance above.`, `您的本命大六壬初传落在${el(h.sanShiEcho)}，与上述失衡相呼应。`));
+    const own = WUXING_BODY_SYSTEMS[dmElem];
+    add('health', 'health', 0, bt(`Your own element (${el(dmElem)}) corresponds to ${own.en}.`, `您自身五行（${el(dmElem)}）对应${own.zh}。`));
+  });
+
+  // ---- I Ching ----
+  safe('iching', () => {
+    const mh = p.meiHua;
+    add('iching', 'life', 0, bt(`Natal hexagram #${mh.hexNo} ${mh.hexInfo.en} (${mh.hexInfo.cn}): ${mh.upperTrigram.en} (${mh.upperTrigram.elemEN}) over ${mh.lowerTrigram.en} (${mh.lowerTrigram.elemEN}), moving line ${mh.movingLine}.`, `本命第${mh.hexNo}卦「${mh.hexInfo.cn}」：上卦${mh.upperTrigram.cn}（${mh.upperTrigram.elemZH}）、下卦${mh.lowerTrigram.cn}（${mh.lowerTrigram.elemZH}），动爻第${mh.movingLine}爻。`));
+  });
+
+  // ---- Xiang Shu (self-reported face features, if the person has saved them) ----
+  safe('xiangshu', () => {
+    const saved = u && rawProf && u.xiangShuByPerson ? u.xiangShuByPerson[xiangShuPersonKey(rawProf)] : null;
+    const r = saved ? computeXiangShuReading(saved) : null;
+    if (!r) return;
+    add('xiangshu', 'life', 0, bt(`Face shape - ${r.face.en}: ${r.face.reading.en}`, `脸型——${r.face.zh}：${r.face.reading.zh}`));
+    add('xiangshu', 'life', 0, bt(`Eyes - ${r.eyes.en}: ${r.eyes.reading.en}`, `眼睛——${r.eyes.zh}：${r.eyes.reading.zh}`));
+    add('xiangshu', 'wealth', 0, bt(`Nose (Wealth Palace 财帛宫) - ${r.nose.en}: ${r.nose.reading.en}`, `鼻（财帛宫）——${r.nose.zh}：${r.nose.reading.zh}`));
+    add('xiangshu', 'love', 0, bt(`Mouth - ${r.mouth.en}: ${r.mouth.reading.en}`, `嘴——${r.mouth.zh}：${r.mouth.reading.zh}`));
+    add('xiangshu', 'life', 0, bt(`Chin (later life) - ${r.chin.en}: ${r.chin.reading.en}`, `下巴（晚运）——${r.chin.zh}：${r.chin.reading.zh}`));
+  });
+
+  // ---- Da Yun / Liu Nian (the cascading month-by-month annual reading + each cycle's own rating) ----
+  safe('dayun', () => {
+    const pol7 = (score) => (score >= 1.5 ? 1 : (score < -1.5 ? -1 : 0));
+    const ann = computeDaYunAnnualDeepReading(p, 2);
+    ann.years.forEach((yd, i) => {
+      const best = yd.bestMonths[0], worst = yd.worstMonths[0];
+      add('dayun', yearList[i].dom, pol7(yd.avgScore), bt(`${yd.year} Liu Nian ${stemCN[yd.liuNian.stemIdx]}${branchCN[yd.liuNian.branchIdx]}: rated ${yd.tier.en} overall across its 12 months (best ${yd.year}-${String(best.month).padStart(2, '0')}, most cautioned ${yd.year}-${String(worst.month).padStart(2, '0')}).`, `${yd.year}年流年${stemCN[yd.liuNian.stemIdx]}${branchCN[yd.liuNian.branchIdx]}：全年12个月综合评级「${yd.tier.zh}」（最佳${yd.year}-${String(best.month).padStart(2, '0')}，最需留意${yd.year}-${String(worst.month).padStart(2, '0')}）。`));
+    });
+    const cycles = p.daYunPillars.filter(dy => (dy.age + 9) >= a.currentAge);
+    [['thisCycle', cycles[0]], ['nextCycle', cycles[1]]].forEach(([dom, dy]) => {
+      if (dy) add('dayun', dom, dy.rating.score >= 1 ? 1 : (dy.rating.score < 0 ? -1 : 0), bt(`Da Yun ${stemCN[dy.stemIdx]}${branchCN[dy.branchIdx]} (ages ${dy.age}-${dy.age + 9}, ${dy.calendarYearStart}-${dy.calendarYearStart + 9}): rated ${dy.rating.tierEN} by the cycle heuristic (element relation to your Day Master plus clash/harmony with your Day Branch).`, `大运${stemCN[dy.stemIdx]}${branchCN[dy.branchIdx]}（${dy.age}至${dy.age + 9}岁，${dy.calendarYearStart}至${dy.calendarYearStart + 9}年）：依运程推算（与日主的五行关系及与日支的冲合）评级「${dy.rating.tierZH}」。`));
+    });
+  });
+
+  // ---- Qi Men Dun Jia ----
+  safe('qmdj', () => {
+    const q = p.qmdj, rate = QMDJ_DOOR_RATING[q.lifeDoor] || 'Neutral';
+    const pol = rate === 'Auspicious' ? 1 : (rate === 'Caution' ? -1 : 0);
+    const rateZh = { Auspicious: '吉门', Caution: '凶门', Neutral: '中性门' }[rate];
+    const dd = QMDJ_DOOR_DOMAIN[q.lifeDoor];
+    const lifeText = bt(`Natal palace ${q.natalPalace} (${p.palaceName}) with ${q.lifeDoor} (rated ${rate}), ${q.lifeStar} and ${q.lifeDeity}${dd ? ` - the door's own domain: ${dd.en}` : ''}.`, `命宫第${q.natalPalace}宫（${p.palaceName}），${q.lifeDoor}（${rateZh}）、${q.lifeStar}、${q.lifeDeity}${dd ? `——此门主：${dd.zh}` : ''}。`);
+    const mapped = QMDJ_DOOR_TO_SYNTHESIS_DOMAIN[q.lifeDoor];
+    add('qmdj', mapped ? ['life', mapped] : 'life', pol, lifeText);
+    const wDoor = q.grid[q.wealthPalace] && q.grid[q.wealthPalace].door;
+    if (wDoor) {
+      const wr = QMDJ_DOOR_RATING[wDoor] || 'Neutral';
+      add('qmdj', ['wealth', 'luck'], wr === 'Auspicious' ? 1 : (wr === 'Caution' ? -1 : 0), bt(`Wealth Palace is palace ${q.wealthPalace} (${integPalaceDir(q.wealthPalace)}), holding ${wDoor} (rated ${wr}).`, `财帛宫为第${q.wealthPalace}宫（${integPalaceDir(q.wealthPalace)}），落${wDoor}（${{ Auspicious: '吉门', Caution: '凶门', Neutral: '中性门' }[wr]}）。`));
+    }
+    if (q.yiMaPalace) add('qmdj', 'luck', 0, bt(`Yi Ma (traveling horse) sits in palace ${q.yiMaPalace} (${integPalaceDir(q.yiMaPalace)}) - movement, travel and relocation are favoured from that direction.`, `驿马落第${q.yiMaPalace}宫（${integPalaceDir(q.yiMaPalace)}）——出行、迁移宜自该方位着手。`));
+  });
+
+  // ---- San Shi: natal Da Liu Ren + Tai Yi (natal macro theme, flowing-year macro theme) ----
+  safe('sanshi', () => {
+    const r = rateBranchOnly(p.daLiuRen.chuChuan, dm, bazi.dayBranchIdx);
+    add('sanshi', 'life', r.score >= 1 ? 1 : (r.score < 0 ? -1 : 0), bt(`Natal Da Liu Ren: Chu Chuan ${branchCN[p.daLiuRen.chuChuan]} with ${p.daLiuRen.chuChuanGeneral}, rated ${r.tierEN} against your Day Master.`, `本命大六壬：初传${branchCN[p.daLiuRen.chuChuan]}，乘${p.daLiuRen.chuChuanGeneral}，对日主评级「${r.tierZH}」。`));
+    const t = p.taiYi;
+    add('sanshi', 'life', t.score >= 1 ? 1 : (t.score <= -1 ? -1 : 0), bt(`Tai Yi macro theme of your birth year: ${t.tierEN} - ${t.themeEN}`, `出生年太乙宏观主题：${t.tierZH}——${t.themeZH}`));
+    const cur = getCurrentYearTaiYiForProfile(p);
+    add('sanshi', 'thisYear', cur.score >= 1 ? 1 : (cur.score <= -1 ? -1 : 0), bt(`Tai Yi macro theme for ${cur.flowingYear}: ${cur.tierEN} - ${cur.themeEN}`, `${cur.flowingYear}年太乙宏观主题：${cur.tierZH}——${cur.themeZH}`));
+    const ny = cur.flowingYear + 1, nst = mod(ny - 4, 10), nbr = mod(ny - 4, 12);
+    const nxt = computeTaiYiMacroTheme(nst, nbr, dm, bazi.dayBranchIdx);
+    add('sanshi', 'nextYear', nxt.score >= 1 ? 1 : (nxt.score <= -1 ? -1 : 0), bt(`Tai Yi macro theme for ${ny}: ${nxt.tierEN} - ${nxt.themeEN}`, `${ny}年太乙宏观主题：${nxt.tierZH}——${nxt.themeZH}`));
+  });
+
+  // ---- Ze Ri (only the real Day-Branch clash/harmony rule - see the honesty rules above) ----
+  safe('zeri', () => {
+    let clash = 0, harmony = 0, nextClash = null, nextHarmony = null;
+    const fmt = (d) => d.toLocaleDateString(lang === 'zh' ? 'zh-SG' : 'en-SG', { day: 'numeric', month: 'short' });
+    const cursor = new Date();
+    for (let i = 0; i < 60; i++) {
+      const b = getDayBranchForDate(cursor);
+      if (SIX_CLASH[bazi.dayBranchIdx] === b) { clash++; if (!nextClash) nextClash = fmt(cursor); }
+      else if (SIX_HARMONY[bazi.dayBranchIdx] === b) { harmony++; if (!nextHarmony) nextHarmony = fmt(cursor); }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    add('zeri', 'now', 0, bt(`Next 60 days: ${clash} day(s) clash your Day Branch (Six Clash - best not for major starts${nextClash ? `; next ${nextClash}` : ''}) and ${harmony} day(s) combine with it (Six Harmony - smoother for cooperation${nextHarmony ? `; next ${nextHarmony}` : ''}).`, `未来60天：${clash}天冲您的日支（六冲——不宜重大开创${nextClash ? `；下一次${nextClash}` : ''}），${harmony}天与之相合（六合——利于合作${nextHarmony ? `；下一次${nextHarmony}` : ''}）。`));
+  });
+
+  // ---- Daily & Hourly highlights (today's own Qi Men door, Da Liu Ren and two-hour blocks) ----
+  safe('daily', () => {
+    const dq = getDailyQmdjForProfile(p);
+    add('daily', 'now', dq.doorRatingToday === 'Auspicious' ? 1 : (dq.doorRatingToday === 'Caution' ? -1 : 0), bt(`Today's Qi Men door at your palace is ${dq.cellToday.door} (rated ${dq.doorRatingToday}).`, `今日奇门落在您所在宫位的门为${dq.cellToday.door}（${{ Auspicious: '吉门', Caution: '凶门', Neutral: '中性门' }[dq.doorRatingToday]}）。`));
+    const dl = getDailyDaLiuRenForProfile(p);
+    add('daily', 'now', dl.chuChuanRating.score >= 1 ? 1 : (dl.chuChuanRating.score < 0 ? -1 : 0), bt(`Today's Da Liu Ren Chu Chuan is ${branchCN[dl.chuChuan]}, rated ${dl.chuChuanRating.tierEN} for your Day Master.`, `今日大六壬初传为${branchCN[dl.chuChuan]}，对您日主评级「${dl.chuChuanRating.tierZH}」。`));
+    const blocks = computeHourlyHighlights(p, 0);
+    const best = blocks.reduce((x, y) => (y.rating.score > x.rating.score ? y : x)), worst = blocks.reduce((x, y) => (y.rating.score < x.rating.score ? y : x));
+    add('daily', 'now', 0, bt(`Best two-hour block today: ${best.label} (${best.rating.tierEN}); most cautioned: ${worst.label} (${worst.rating.tierEN}).`, `今日最佳时辰：${best.label}（${best.rating.tierZH}）；最需留意：${worst.label}（${worst.rating.tierZH}）。`));
+  });
+
+  // ---- Zi Wei Dou Shu (natal palaces, natal Si Hua, and the annual overlay) ----
+  safe('ziwei', () => {
+    const zw = p.ziwei, lifeB = zw.lifePalaceBranchIdx;
+    const pName = (step) => bt(ZWDS_PALACE_NAMES_BY_STEP_BACK[step].en, ZWDS_PALACE_NAMES_BY_STEP_BACK[step].zh);
+    const kindPol = (k) => ((k === 'auspicious' || k === 'lucky') ? 1 : ((k === 'malefic' || k === 'void') ? -1 : 0));
+    const palaceDefs = [[0, 'life'], [8, 'career'], [4, 'wealth'], [2, 'love'], [5, 'health'], [10, 'luck']];
+    palaceDefs.forEach(([step, dom]) => {
+      const sig = zwdsPalaceStarSignals(p, step);
+      const main = sig.stars.filter(s => s.isMajor), minor = sig.stars.filter(s => !s.isMajor);
+      const net = minor.reduce((n, s) => n + kindPol((ZWDS_MINOR_STARS[s.key] || {}).kind), 0);
+      const mainTxt = main.length ? main.map(s => bt(`${s.nameEN} (${s.meaning.en})`, `${s.nameZH}（${s.meaning.zh}）`)).join('; ') : bt('no major star placed here', '此宫无主星');
+      const minorTxt = minor.length ? ' ' + bt(`Minor stars: ${minor.map(s => `${s.nameEN} (${(ZWDS_MINOR_STARS[s.key] || {}).kind || 'neutral'})`).join(', ')}.`, `辅煞星：${minor.map(s => s.nameZH).join('、')}。`) : '';
+      add('ziwei', dom, net >= 1 ? 1 : (net <= -1 ? -1 : 0), bt(`${pName(step)} palace: ${mainTxt}.`, `${pName(step)}：${mainTxt}。`) + minorTxt);
+    });
+    const siHuaDefs = [['lu', '化禄', 'Hua Lu', 1], ['quan', '化权', 'Hua Quan', 1], ['ke', '化科', 'Hua Ke', 1], ['ji', '化忌', 'Hua Ji', -1]];
+    const siHuaText = (type, enName, zhName, polarity, starKey, step) => {
+      const star = ZWDS_MAJOR_STARS[starKey] || ZWDS_MINOR_STARS[starKey];
+      const meaning = { lu: bt('flow and gain', '顺遂与收获'), quan: bt('authority and drive', '权柄与推动力'), ke: bt('reputation and ease', '名声与顺遂'), ji: bt('obstruction and attachment', '阻滞与执着') }[type];
+      return bt(`${enName} (${meaning}) lands on ${star.en.split(' (')[0]} in the ${ZWDS_PALACE_NAMES_BY_STEP_BACK[step].en} palace.`, `${zhName}（${meaning}）落于${star.cn}，在${ZWDS_PALACE_NAMES_BY_STEP_BACK[step].zh}。`);
+    };
+    const hua = SI_HUA_TABLE[bazi.yearStemIdx];
+    siHuaDefs.forEach(([type, zhName, enName, polarity]) => {
+      const key = hua[type], branch = zw.placements[key];
+      if (branch === undefined) return;
+      const step = mod(lifeB - branch, 12);
+      add('ziwei', INTEG_ZW_PALACE_DOMAIN[step] || 'life', polarity, bt('Natal ', '本命') + siHuaText(type, enName, zhName, polarity, key, step));
+    });
+    yearList.forEach(y => {
+      const ln = computeYearPillar(y.year), step = mod(lifeB - ln.branchIdx, 12);
+      add('ziwei', y.dom, 0, bt(`Annual overlay: the ${y.year} year branch ${branchCN[ln.branchIdx]} falls in your ${ZWDS_PALACE_NAMES_BY_STEP_BACK[step].en} palace - the life area this year puts in focus.`, `流年叠宫：${y.year}年地支${branchCN[ln.branchIdx]}落在您的${ZWDS_PALACE_NAMES_BY_STEP_BACK[step].zh}——今年被聚焦的生活领域。`));
+      const yh = SI_HUA_TABLE[ln.stemIdx];
+      [['lu', '化禄', 'Hua Lu', 1], ['ji', '化忌', 'Hua Ji', -1]].forEach(([type, zhName, enName, polarity]) => {
+        const key = yh[type], branch = zw.placements[key];
+        if (branch === undefined) return;
+        add('ziwei', y.dom, polarity, bt(`${y.year} `, `${y.year}年`) + siHuaText(type, enName, zhName, polarity, key, mod(lifeB - branch, 12)));
+      });
+    });
+  });
+
+  // ---- Feng Shui: Ba Zhai (by Kua) and the annual Flying Star ----
+  safe('fengshui', () => {
+    const table = BAZHAI_STARS[p.kuaNum];
+    if (table) {
+      const dirOf = (star) => Object.keys(table).find(d => table[d] === star);
+      const dirLabel = (d) => bt(d, { North: '北', Northeast: '东北', East: '东', Southeast: '东南', South: '南', Southwest: '西南', West: '西', Northwest: '西北' }[d]);
+      const g = [['Sheng Qi', '生气', 'wealth', 'vitality and prosperity', '生机与财运'], ['Tian Yi', '天医', 'health', 'health and healing', '健康与疗愈'], ['Yan Nian', '延年', 'love', 'relationships and longevity', '感情与长久']];
+      g.forEach(([star, zhStar, dom, domEN, domZH]) => { const d = dirOf(star); if (d) add('fengshui', dom, 0, bt(`Ba Zhai (Kua ${p.kuaNum}, ${p.kuaGroup}): your ${star} direction is ${dirLabel(d)} - associated with ${domEN}.`, `八宅（命卦${p.kuaNum}，${p.kuaGroup}）：您的${zhStar}方位为${dirLabel(d)}——主${domZH}。`)); });
+      const worst = dirOf('Jue Ming');
+      if (worst) add('fengshui', 'luck', 0, bt(`Your Jue Ming (the most cautioned) direction is ${dirLabel(worst)} - best not for a bed head, desk facing or front door.`, `您的绝命方位为${dirLabel(worst)}——不宜作床头、书桌朝向或大门。`));
+    }
+    yearList.forEach(y => {
+      const star = computeAnnualFlyingStar(y.year).center, n = FLYING_STAR_NATURE[star];
+      if (n) add('fengshui', y.dom, polOfFav(n.favourable), bt(`${y.year} annual Flying Star in the centre is ${star}: ${n.en}`, `${y.year}年流年入中宫飞星为${star}：${n.zh}`));
+    });
+  });
+
+  // ---- Numerology ----
+  safe('numerology', () => {
+    const mean = (n) => NUMEROLOGY_CORE_DIGIT_MEANING[n] || NUMEROLOGY_CORE_DIGIT_MEANING[{ 33: 6 }[n]] || { en: '', zh: '' };
+    const wn = p.westernNameNumerology;
+    add('numerology', 'life', 0, bt(`Life Path ${p.life}${p.isMasterNumber ? ' (Master Number)' : ''}: ${mean(p.life).en}.`, `生命数字${p.life}${p.isMasterNumber ? '（大师数）' : ''}：${mean(p.life).zh}。`));
+    if (wn) {
+      add('numerology', 'career', 0, bt(`Expression (name) number ${wn.expression}: ${mean(wn.expression).en} - how your talents tend to show up in work.`, `表达数${wn.expression}：${mean(wn.expression).zh}——您的才能在工作中的呈现方式。`));
+      add('numerology', 'love', 0, bt(`Soul Urge number ${wn.soulUrge}: ${mean(wn.soulUrge).en} - what you are inwardly seeking, including in relationships.`, `灵魂渴望数${wn.soulUrge}：${mean(wn.soulUrge).zh}——您内心所追求的，包括在感情中。`));
+      add('numerology', 'life', 0, bt(`Personality number ${wn.personality}${wn.personalityIsMaster ? ' (Master Number)' : ''}: ${mean(wn.personality).en} - the face you show others.`, `人格数${wn.personality}${wn.personalityIsMaster ? '（大师数）' : ''}：${mean(wn.personality).zh}——您展现给他人的面貌。`));
+    }
+    add('numerology', ['wealth', 'luck'], 0, bt(`Favourable numbers for dates, addresses and identifiers: ${p.numCompat.join(', ')}; less resonant: ${p.numAvoid.join(', ')}.`, `适合用于日期、地址与标识的有利数字：${p.numCompat.join('、')}；较不契合：${p.numAvoid.join('、')}。`));
+  });
+
+  // ---- Western Astrology ----
+  safe('western', () => {
+    const natal = computeFullNatalChart(bazi.birthMomentUTC);
+    const sunP = SIGN_PROFILE_TABLE[p.astro.en];
+    const sunZh = p.astro.zh;
+    add('western', 'life', 0, bt(`Sun in ${p.astro.en}, Moon in ${natal.moon.sign.en}${p.houses ? `, Ascendant in ${p.houses.ascendantSign.en}` : ''} - core identity, inner emotional needs${p.houses ? ' and outward presentation' : ''}.`, `太阳${sunZh}、月亮${natal.moon.sign.zh}${p.houses ? `、上升${p.houses.ascendantSign.zh}` : ''}——核心身份、内在情感需求${p.houses ? '与外在形象' : ''}。`));
+    if (sunP) {
+      add('western', 'career', 0, bt(`Sun-sign career style (${p.astro.en}): ${sunP.careerTraits.en}; suited roles include ${sunP.careers.en}.`, `太阳星座（${sunZh}）事业风格：${sunP.careerTraits.zh}；适合的职业包括${sunP.careers.zh}。`));
+      add('western', 'love', 0, bt(`Relationship style (${p.astro.en}): ${sunP.relationshipStyle.en}. Venus is in ${natal.venus.sign.en}.`, `感情风格（${sunZh}）：${sunP.relationshipStyle.zh}。金星落${natal.venus.sign.zh}。`));
+      add('western', 'health', 0, bt(`Traditional body focus for ${p.astro.en}: ${sunP.bodyArea.en}.`, `${sunZh}传统上关注的身体部位：${sunP.bodyArea.zh}。`));
+    }
+    const venusEl = ZODIAC_ELEMENT_MODALITY[natal.venus.sign.en].element;
+    add('western', 'wealth', 0, bt(`Venus (values and finances) sits in ${venusEl} sign ${natal.venus.sign.en}: ${WESTERN_ELEMENT_MONEY_STYLE[venusEl].en}.`, `金星（价值观与财务）落${venusEl === 'Fire' ? '火' : venusEl === 'Earth' ? '土' : venusEl === 'Air' ? '风' : '水'}象星座${natal.venus.sign.zh}：${WESTERN_ELEMENT_MONEY_STYLE[venusEl].zh}。`));
+    const aspects = computeNatalAspectGrid(natal).filter(x => !((x.a === 'northnode' && x.b === 'southnode') || (x.a === 'southnode' && x.b === 'northnode'))).slice(0, 3);
+    aspects.forEach(asp => {
+      const pa = PLANET_INFO_FULL[asp.a], pb = PLANET_INFO_FULL[asp.b], am = ASPECT_MEANING[asp.name];
+      const pol = (asp.name === 'Trine' || asp.name === 'Sextile') ? 1 : ((asp.name === 'Square' || asp.name === 'Opposition') ? -1 : 0);
+      add('western', 'life', pol, bt(`Natal ${pa.en} ${asp.name} ${pb.en} (orb ${asp.orbUsed.toFixed(1)}°)${am ? `: ${am.en}` : ''}`, `本命${pa.zh}${asp.nameZh}${pb.zh}（容许度${asp.orbUsed.toFixed(1)}°）${am ? `：${am.zh}` : ''}`));
+    });
+    if (p.houses) {
+      const ph = computeNatalPointHouses(natal, p.houses);
+      [[2, 'wealth'], [6, 'health'], [7, 'love'], [10, 'career']].forEach(([h, dom]) => {
+        const occ = NATAL_ASPECT_PLANET_ORDER.filter(k => ph[k] === h).map(k => bt(PLANET_INFO_FULL[k].en, PLANET_INFO_FULL[k].zh));
+        add('western', dom, 0, bt(`House ${h} (${HOUSE_LIFE_AREAS[h].en}): ${occ.length ? 'occupied by ' + occ.join(', ') + ' - that area carries extra weight in your chart' : 'no natal planet sits here, so it reads mainly through its ruling sign'}.`, `第${h}宫（${HOUSE_LIFE_AREAS[h].zh}）：${occ.length ? '有' + occ.join('、') + '落入——此领域在您的命盘中分量较重' : '无本命行星落入，主要依该宫所属星座解读'}。`));
+      });
+    }
+    const wAnn = computeAnnualDeepReading(p, 2);
+    wAnn.years.forEach((yd, i) => {
+      const polW = (yd.tier.en === 'Very Auspicious' || yd.tier.en === 'Auspicious') ? 1 : ((yd.tier.en === 'Neutral') ? 0 : -1);
+      const top = yd.aspects[0];
+      add('western', yearList[i].dom, polW, bt(`${yd.year} transits rated ${yd.tier.en} (${yd.aspects.length} real aspects to your natal chart)${top ? `; strongest: ${describeTransitAspectMeaning(top)}` : ''}`, `${yd.year}年行运评级「${yd.tier.zh}」（与本命盘共${yd.aspects.length}个真实相位）${top ? `；最显著：${describeTransitAspectMeaning(top)}` : ''}`));
+    });
+  });
+
+  // ---- Personal Assets (mobile / vehicle / address compatibility, scoped per profile type) ----
+  safe('assets', () => {
+    if (!prefix || !u) return;
+    const rows = buildPersonalAssetsSummaryRows(prefix, p, getProfileByPrefix(prefix), u);
+    rows.filter(r => r.ok).forEach(r => {
+      const m = String(r.lines[0]).match(/^(.*?):\s*(\d+)%/);
+      if (!m) return;
+      const score = Number(m[2]);
+      add('assets', ['wealth', 'luck'], score >= 70 ? 1 : (score < 50 ? -1 : 0), bt(`${m[1].trim()}: ${score}% compatibility with your chart.`, `${m[1].trim()}：与您命盘的契合度${score}%。`));
+    });
+  });
+
+  // ---- Partner / Business Partner compatibility (main profile only) ----
+  safe('compat', () => {
+    if (prefix !== 'i' || !u) return;
+    if (u.partner) {
+      const pp = getProfileData(u.partner), cr = calculateTrueCompatibility(p, pp, false);
+      add('compat', 'love', cr.score >= 70 ? 1 : (cr.score < 50 ? -1 : 0), bt(`Life Partner ${pp.displayName}: ${cr.score}% overall compatibility across the app's systems.`, `生命伴侣${pp.displayName}：本应用各体系综合契合度${cr.score}%。`));
+    }
+    const biz = [];
+    if (u.businessPartner) biz.push(u.businessPartner);
+    (u.additionalBizPartners || []).forEach(b => biz.push(b));
+    biz.forEach(bp => {
+      const bpp = getProfileData(bp), cr = calculateTrueCompatibility(p, bpp, true);
+      add('compat', 'career', cr.score >= 70 ? 1 : (cr.score < 50 ? -1 : 0), bt(`Business Partner ${bpp.displayName}: ${cr.score}% strategic alignment across the app's systems.`, `事业伙伴${bpp.displayName}：本应用各体系战略契合度${cr.score}%。`));
+    });
+  });
+
+  return { signals: S, unavailable, hasXiangShu: S.some(s => s.sys === 'xiangshu'), hasPrefix: !!prefix };
+}
+
+function integPolGlyph(pol) { return pol > 0 ? '▲' : (pol < 0 ? '▼' : '●'); }
+function integPolColor(pol) { return pol > 0 ? 'var(--success)' : (pol < 0 ? 'var(--danger)' : 'var(--muted)'); }
+function integTally(sigs) {
+  const up = sigs.filter(s => s.pol > 0).length, down = sigs.filter(s => s.pol < 0).length;
+  return { up, down, mid: sigs.length - up - down, systems: new Set(sigs.map(s => s.sys)).size, total: sigs.length };
+}
+function integTallyText(t) {
+  return bt(`${t.total} signal${t.total === 1 ? '' : 's'} from ${t.systems} system${t.systems === 1 ? '' : 's'}: ${t.up} supportive ▲ · ${t.mid} neutral/informational ● · ${t.down} cautionary ▼`,
+    `共${t.total}项信号，来自${t.systems}个体系：${t.up}项有利 ▲ · ${t.mid}项中性／参考 ● · ${t.down}项需留意 ▼`);
+}
+// One block per reading section: every system's own sentence for this life area, grouped by system, with its
+// polarity glyph and a count line. Returns '' if no system has anything for the area.
+function renderIntegratedBlock(integ, domain, headingEN, headingZH) {
+  const sigs = integ.signals.filter(s => s.doms.includes(domain));
+  if (!sigs.length) return '';
+  const t = integTally(sigs);
+  const rows = INTEG_SYSTEMS.map(sys => {
+    const mine = sigs.filter(s => s.sys === sys.key);
+    if (!mine.length) return '';
+    return `<div style="margin:5px 0"><strong style="color:var(--plum)">${bt(sys.en, sys.zh)}</strong> <span style="font-size:10px;color:var(--muted)">(${bt(INTEG_TAB_LABEL[sys.tab].en, INTEG_TAB_LABEL[sys.tab].zh)})</span>${mine.map(s => `<div style="margin:2px 0 2px 10px;font-size:12px"><span style="color:${integPolColor(s.pol)};font-weight:700">${integPolGlyph(s.pol)}</span> ${s.text}</div>`).join('')}</div>`;
+  }).join('');
+  return `<div class="calc-box" style="margin-top:10px;font-size:12px;line-height:1.55">
+    <div style="font-weight:700;color:var(--plum);margin-bottom:2px">${bt(headingEN, headingZH)}</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${integTallyText(t)}</div>
+    ${rows}
+  </div>`;
+}
+// Matrix: each system's net polarity per area (▲ all supportive, ▼ all cautionary, ◐ mixed, ● informational only,
+// blank = that system has nothing for the area), then plain-language lines for areas where the count is lopsided.
+function renderIntegratedOverview(integ) {
+  const cols = INTEG_DOMAINS;
+  const cell = (sysKey, dom) => {
+    const mine = integ.signals.filter(s => s.sys === sysKey && s.doms.includes(dom));
+    if (!mine.length) return '<td style="padding:3px 4px;border:1px solid #eee;text-align:center;color:#ccc">–</td>';
+    const up = mine.some(s => s.pol > 0), down = mine.some(s => s.pol < 0);
+    const g = up && down ? '◐' : (up ? '▲' : (down ? '▼' : '●'));
+    const c = up && down ? 'var(--warning)' : (up ? 'var(--success)' : (down ? 'var(--danger)' : 'var(--muted)'));
+    return `<td style="padding:3px 4px;border:1px solid #eee;text-align:center;color:${c};font-weight:700">${g}</td>`;
+  };
+  const rows = INTEG_SYSTEMS.filter(sys => integ.signals.some(s => s.sys === sys.key)).map(sys =>
+    `<tr><td style="padding:3px 6px;border:1px solid #eee;font-size:10px;white-space:nowrap">${bt(sys.en, sys.zh)}</td>${cols.map(c => cell(sys.key, c.key)).join('')}</tr>`).join('');
+  const header = `<tr style="background:#f4f4f4"><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('System', '体系')}</th>${cols.map(c => `<th style="padding:3px 4px;border:1px solid #eee;font-size:9px">${bt(c.en, c.zh)}</th>`).join('')}</tr>`;
+  const lines = cols.map(c => {
+    const sigs = integ.signals.filter(s => s.doms.includes(c.key));
+    const t = integTally(sigs);
+    if (t.systems < 2) return '';
+    let verdict;
+    if (t.up >= 2 && t.down === 0) verdict = bt('every rated indicator here points supportive', '所有已评级的指标均偏向有利');
+    else if (t.down >= 2 && t.up === 0) verdict = bt('every rated indicator here points cautionary', '所有已评级的指标均偏向需留意');
+    else if (t.up >= 1 && t.down >= 1) verdict = bt(`mixed - ${t.up} supportive against ${t.down} cautionary, so the lines above matter more than any single headline`, `互有出入——${t.up}项有利对${t.down}项需留意，因此上述逐项说明比任何单一结论更重要`);
+    else verdict = bt('largely informational - few of these systems give a rating for this area', '多为参考性质——此领域中少有体系给出评级');
+    return `<li><strong>${bt(c.en, c.zh)}:</strong> ${verdict} (${t.up}▲ ${t.mid}● ${t.down}▼)</li>`;
+  }).join('');
+  return `<div style="overflow-x:auto;margin:6px 0"><table style="border-collapse:collapse;font-size:11px">${header}${rows}</table></div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:6px">${bt('▲ supportive · ● neutral/informational · ▼ cautionary · ◐ mixed within that system · – nothing from that system for that area', '▲ 有利 · ● 中性／参考 · ▼ 需留意 · ◐ 该体系内互有出入 · – 该体系对此领域无内容')}</div>
+    <ul style="margin:6px 0 0;padding-left:20px">${lines}</ul>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">${bt('These are counts of each system\'s own rating, not a probability or a weighted score. The systems are different traditions and several draw on the same birth data, so lining up is not independent confirmation - treat a lopsided count as a prompt to read the detail above, not as a verdict.', '以上为各体系自身评级的计数，并非概率或加权分数。各体系属不同传统，且多依据同一出生资料，因此方向一致并不构成独立印证——请将明显偏向的计数视为细读上文的提示，而非定论。')}</div>`;
+}
+// Coverage: every system the app computes, which tab it lives in, how many signals it contributed to this
+// reading, and (where relevant) the honest reason a system contributed little or nothing.
+function renderIntegratedCoverage(integ) {
+  const notes = {
+    xiangshu: integ.hasXiangShu ? '' : bt('Not on file - generate your Face Reading in the Xiang Shu section (Core tab) and it will be saved and included here.', '尚未记录——请在「相术」（核心分页）生成面相解读，系统将保存并纳入此处。'),
+    assets: integ.hasPrefix ? bt('Only items you have set (mobile, vehicle, address) appear.', '仅显示您已设置的项目（手机、车牌、地址）。') : '',
+    compat: bt('Main profile only, and only if a Life Partner / Business Partner is on file.', '仅限主档案，且需已记录生命伴侣／事业伙伴。'),
+    zeri: bt('Only the real Day-Branch clash/harmony rule is used; the Ze Ri tier also includes a date-arithmetic pattern that is not a metaphysical calculation, so it is not used.', '仅采用真实的日支冲合规则；择日等级另含一项日期算术规律，并非玄学推算，因此不予采用。'),
+    daily: bt('Today\'s snapshot - it changes every day, so it appears only in the "right now" lines.', '今日快照——每天都会变化，故只出现在「当下」的说明中。')
+  };
+  const rows = INTEG_SYSTEMS.map(sys => {
+    const n = integ.signals.filter(s => s.sys === sys.key).length;
+    const bad = integ.unavailable.includes(sys.key);
+    const status = bad ? bt('could not be computed', '无法计算') : (n ? bt(`${n} signal${n === 1 ? '' : 's'} used`, `已纳入${n}项信号`) : bt('nothing to add yet', '暂无内容'));
+    return `<tr><td style="padding:3px 6px;border:1px solid #eee;font-size:10px;white-space:nowrap">${bt(sys.en, sys.zh)}</td><td style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt(INTEG_TAB_LABEL[sys.tab].en, INTEG_TAB_LABEL[sys.tab].zh)}</td><td style="padding:3px 6px;border:1px solid #eee;font-size:10px">${status}${notes[sys.key] ? `<div style="color:var(--muted)">${notes[sys.key]}</div>` : ''}</td></tr>`;
+  }).join('');
+  return `<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%"><tr style="background:#f4f4f4"><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('System', '体系')}</th><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('Tab', '分页')}</th><th style="padding:3px 6px;border:1px solid #eee;font-size:10px">${bt('Used in this reading', '本解读中的使用情况')}</th></tr>${rows}</table></div>
+    <div style="margin-top:6px;font-size:11px;color:var(--muted)">${bt('Not used on purpose: Life Expectancy, children count and marriage ages (the app derives these from simple arithmetic rather than a metaphysical calculation).', '刻意不采用：预期寿命、子女数与结婚年龄（本应用以简单算术而非玄学推算得出）。')}</div>`;
+}
+
+function generateDetailedReading(p, prefix) {
+  const a = computeDetailedReadingAnalysis(p);
+  // Everything the other systems in the app say about the same life areas (see buildIntegratedSignals). If building
+  // it ever fails, the BaZi-based reading below still renders exactly as before.
+  let integ;
+  try { integ = buildIntegratedSignals(p, prefix); } catch (e) { console.warn('Integrated signals unavailable:', e); integ = { signals: [], unavailable: INTEG_SYSTEMS.map(x => x.key), hasXiangShu: false, hasPrefix: !!prefix }; }
+  const blk = (dom, en, zh) => renderIntegratedBlock(integ, dom, bt('Cross-system view: ', '跨体系视角：') + bt(en, zh), '');
   const bazi = p.bazi;
   const dmElemEN = ELEM_NAMES_EN[a.dmElemIdx], dmElemZH = ELEM_NAMES_ZH[a.dmElemIdx];
   const strengthLabel = bt(
@@ -9788,18 +10270,21 @@ function generateDetailedReading(p) {
   );
 
   return `
+    <div class="calc-box" style="margin-bottom:6px;font-size:11px">${bt('This reading also draws on every other system the app computes for you (Core, Timing, Environment and More tabs) - see the cross-system boxes under each section and the overview at the end.', '本解读同时参考本应用为您计算的所有其他体系（核心、运势、环境与更多分页）——详见各节下方的跨体系说明框及文末总览。')}</div>
     <div class="calc-box" style="margin-bottom:14px;font-size:11px">${bt('This is a rule-based reading generated from your own chart\'s computed Ten God relationships, Day Master strength heuristic, and Luck Pillar data - a traditional symbolic framework for reflection, not a predictive or diagnostic tool. It is not a substitute for professional advice of any kind, medical or otherwise.', '此为依据您命盘中计算出的十神关系、日主强弱推算及大运资料所生成的规则式命理解读——属传统象征性框架，供反思参考，并非预测或诊断工具，亦不能取代任何专业（包括医疗）意见。')}</div>
-    ${sectionHTML(1, 'Life', '人生', lifeHTML + `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">${usefulGodHTML}</div>`)}
-    ${sectionHTML(2, 'Career', '事业', careerHTML)}
-    ${sectionHTML(3, 'Wealth', '财富', wealthHTML)}
-    ${sectionHTML(4, 'Luck - Direct vs Indirect Wealth vs Windfall', '财运 - 正财、偏财与横财', luckHTML)}
-    ${sectionHTML(5, 'Love', '感情', loveHTML)}
-    ${sectionHTML(6, 'Health - What to Watch', '健康 - 需留意事项', healthHTML)}
-    ${sectionHTML(7, `Current Year Summary - ${a.nowYear}`, `今年运势 - ${a.nowYear}年`, curYearHTML)}
-    ${sectionHTML(8, 'Current Cycle Summary', '现行大运总览', curCycleHTML)}
-    ${sectionHTML(9, `Next Year Summary - ${nextYearNum}`, `明年运势 - ${nextYearNum}年`, nextYearHTML)}
-    ${sectionHTML(10, 'Next Cycle Summary', '下一运程总览', nextCycleHTML)}
+    ${sectionHTML(1, 'Life', '人生', lifeHTML + `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">${usefulGodHTML}</div>` + blk('life', 'Life', '人生'))}
+    ${sectionHTML(2, 'Career', '事业', careerHTML + blk('career', 'Career', '事业'))}
+    ${sectionHTML(3, 'Wealth', '财富', wealthHTML + blk('wealth', 'Wealth', '财富'))}
+    ${sectionHTML(4, 'Luck - Direct vs Indirect Wealth vs Windfall', '财运 - 正财、偏财与横财', luckHTML + blk('luck', 'Luck', '财运'))}
+    ${sectionHTML(5, 'Love', '感情', loveHTML + blk('love', 'Love', '感情'))}
+    ${sectionHTML(6, 'Health - What to Watch', '健康 - 需留意事项', healthHTML + blk('health', 'Health', '健康'))}
+    ${sectionHTML(7, `Current Year Summary - ${a.nowYear}`, `今年运势 - ${a.nowYear}年`, curYearHTML + blk('thisYear', 'This year', '今年') + blk('now', 'Right now & the near term', '当下与近期'))}
+    ${sectionHTML(8, 'Current Cycle Summary', '现行大运总览', curCycleHTML + blk('thisCycle', 'This cycle', '现行运'))}
+    ${sectionHTML(9, `Next Year Summary - ${nextYearNum}`, `明年运势 - ${nextYearNum}年`, nextYearHTML + blk('nextYear', 'Next year', '明年'))}
+    ${sectionHTML(10, 'Next Cycle Summary', '下一运程总览', nextCycleHTML + blk('nextCycle', 'Next cycle', '下一运'))}
     ${sectionHTML(11, 'Full Total Summary', '总体命局摘要', totalHTML)}
+    ${sectionHTML(12, 'Integrated Cross-System Overview', '跨体系综合总览', renderIntegratedOverview(integ))}
+    ${sectionHTML(13, 'Systems Consulted for This Reading', '本解读所参考的体系', renderIntegratedCoverage(integ))}
   `;
 }
 
@@ -9952,7 +10437,7 @@ function renderDetailedReadingTab(profilePrefix) {
 
   const container = $('#detailedReadingContent');
   if (container) {
-    container.innerHTML = `<div class="calc-box" style="margin-bottom:12px">${bt(`This detailed reading is calculated individually for ${currentOption?.label.split(' (')[0] || p.displayName} only, from their own BaZi chart, Ten God relationships, and Luck Pillar data.`, `此详细命理解读仅针对${currentOption?.label.split('（')[0] || p.displayName}个人计算，依据其本人的八字命盘、十神关系及大运资料推算。`)}</div>${profileSelectorHTML}${generateDetailedReading(p)}`;
+    container.innerHTML = `<div class="calc-box" style="margin-bottom:12px">${bt(`This detailed reading is calculated individually for ${currentOption?.label.split(' (')[0] || p.displayName} only, from their own BaZi chart, Ten God relationships and Luck Pillar data, together with every other system the app computes for them (Zodiac, Name, Bone Weight, Zi Wei, Qi Men, San Shi, Feng Shui, Numerology, Western Astrology and more).`, `此详细命理解读仅针对${currentOption?.label.split('（')[0] || p.displayName}个人计算，依据其本人的八字命盘、十神关系及大运资料，并结合本应用为其计算的所有其他体系（生肖、姓名、称骨、紫微、奇门、三式、风水、数字命理、西方占星等）推算。`)}</div>${profileSelectorHTML}${generateDetailedReading(p, prefix)}`;
   }
 }
 
@@ -11199,6 +11684,14 @@ function initListeners() {
           };
           resBox.innerHTML = renderXiangShuResult(features);
           resBox.style.display = 'block';
+          // Save the self-reported features against this person (keyed by their own birth data, so it survives profile edits and slot changes) - the Detailed Reading uses them.
+          const xsProf = getProfileByPrefix(prefix), xsUser = activeUser();
+          if (xsProf && xsUser && computeXiangShuReading(features)) {
+            xsUser.xiangShuByPerson = xsUser.xiangShuByPerson || {};
+            xsUser.xiangShuByPerson[xiangShuPersonKey(xsProf)] = features;
+            saveState();
+            resBox.insertAdjacentHTML('beforeend', `<div style="font-size:11px;color:var(--muted);margin-top:6px">${bt('Saved - your Detailed Reading now includes these features.', '已保存——您的详细解读现已纳入这些特征。')}</div>`);
+          }
       }
 
       // ENHANCEMENT (this round): PDF export button, present on the individual/partner/business

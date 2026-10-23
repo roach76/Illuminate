@@ -13,8 +13,8 @@ let pass = 0, fail = 0;
 function check(cond, msg) { if (cond) pass++; else { fail++; console.error('FAIL: ' + msg); } }
 
 const appSrc = fs.readFileSync(path.join(__PROJECT_ROOT__, 'app.js'), 'utf8');
-check(/function detailedReadingSectionHTML\(p\)/.test(appSrc), 'shared detailedReadingSectionHTML helper exists');
-check((appSrc.match(/bodyHTML \+= detailedReadingSectionHTML\(p\);/g) || []).length === 2, 'helper is appended in both the main-profile and the other-profiles branch');
+check(/function detailedReadingSectionHTML\(p, prefix\)/.test(appSrc), 'shared detailedReadingSectionHTML helper exists');
+check((appSrc.match(/bodyHTML \+= detailedReadingSectionHTML\(p, prefix\);/g) || []).length === 2, 'helper is appended in both the main-profile and the other-profiles branch');
 
 function freshSandbox() {
   const dom = new JSDOM(fs.readFileSync(path.join(__PROJECT_ROOT__, 'index.html'), 'utf8'), { url: 'http://localhost/', runScripts: 'outside-only' });
