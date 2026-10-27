@@ -223,3 +223,14 @@ strong { color: inherit; }
 }
 .app-tooltip.show { opacity: 1; visibility: visible; }
 .tip-i { font-size: 9px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+
+/* Xiang Shu picture pickers: tappable diagram tiles above each face / palm dropdown (see xsPickerHTML in app.js). */
+.xs-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.xs-pick { width: 78px; padding: 4px 3px 5px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink);
+  font-size: 10px; line-height: 1.25; text-align: center; cursor: pointer; font-family: inherit; }
+.xs-pick svg { display: block; width: 58px; height: 58px; margin: 0 auto 3px; }
+.xs-pick span { display: block; }
+.xs-pick:hover { border-color: var(--gold); }
+.xs-pick[aria-pressed="true"] { border-color: var(--gold); background: var(--goldsoft); box-shadow: 0 0 0 2px var(--gold) inset; font-weight: 700; }
+.xs-picks-lg .xs-pick { width: 94px; }
+.xs-picks-lg .xs-pick svg { width: 80px; height: 80px; }

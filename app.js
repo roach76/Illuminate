@@ -5821,6 +5821,56 @@ function generateDeepAnalysisData(type, p, extraData = null, rawOnly = false) {
       pos = [bt('First impressions tend to be consistent and reliable.', '第一印象往往一致且可靠。'), bt('Clear read on how you are perceived in professional settings.', '清楚呈现您在职场中被感知的方式。'), bt('Complements the palm readings with an outward-facing perspective.', '以外在视角补充掌纹解读。')];
       neg = [bt('Facial reading is qualitative and observer-dependent.', '面相解读具主观性，因观察者而异。'), bt('Expression and grooming can temporarily mask underlying structure.', '表情与仪容可能暂时掩盖底层结构。'), bt('Should not be used to make snap judgements about others.', '不应用于对他人做出草率判断。')];
       cau = [bt('Treat as a reflective tool for self-awareness, not a way to judge others.', '请将此视为自我认知的反思工具，而非评判他人的方式。'), bt('Revisit periodically - perceived expression can shift with life stage.', '应定期重新检视 —— 面部表情感知会随人生阶段变化。'), bt('Combine with the palm readings for a fuller picture.', '请结合掌纹解读以获得更完整的图景。')];
+  } else if ((type === 'palm_left_deep' || type === 'palm_right_deep') && computePalmReading(extraData && extraData.palm)) {
+      // ENHANCEMENT (reported: "for xiang shu, add in the left and right palm deep analysis"): the personalised version
+      // of the palm cards - built from the four line descriptors this person chose for THIS hand (see
+      // XIANG_SHU_PALM_LINES and computePalmReading). The generic branches below only run when nothing is saved yet.
+      const pr = computePalmReading(extraData.palm);
+      const hk = type === 'palm_left_deep' ? 'left' : 'right', ok = hk === 'left' ? 'right' : 'left';
+      const role = pr.role[hk], H = pr.hands[hk], O = pr.hands[ok];
+      const handEN = hk === 'left' ? 'Left' : 'Right', handZH = hk === 'left' ? '左' : '右';
+      const roleEN = role === 'congenital' ? 'non-dominant, inherited' : 'dominant, acquired';
+      const roleZH = role === 'congenital' ? '非惯用手，先天' : '惯用手，后天';
+      const domEN = pr.dominant === 'left' ? 'left' : 'right', domZH = pr.dominant === 'left' ? '左' : '右';
+      const L = (ln) => bt(XIANG_SHU_PALM_LINES[ln].label.en, XIANG_SHU_PALM_LINES[ln].label.zh);
+      chars = bt(`${handEN} palm (${roleEN}) - Life line: ${H.life.en}; Head line: ${H.head.en}; Heart line: ${H.heart.en}; Fate line: ${H.fate.en}.`,
+        `${handZH}手（${roleZH}）——生命线：${H.life.zh}；智慧线：${H.head.zh}；感情线：${H.heart.zh}；事业线：${H.fate.zh}。`);
+      exp = role === 'congenital'
+        ? bt(`You told us your ${domEN} hand is dominant, so this ${hk} palm is read as the inherited one: the potential and disposition you were born with, largely fixed rather than shaped by later choices. Each of the four main lines below is read from the feature you chose for it.`,
+            `您选择了${domZH}手为惯用手，因此这只${handZH}手作为先天之手解读：记录您与生俱来的潜能与性情，主要是固定的，较少受后天选择塑造。以下四条主要掌纹均依您为其所选的特征解读。`)
+        : bt(`You told us your ${domEN} hand is dominant, so this ${hk} palm is read as the acquired one: how choices, effort and experience have reshaped the potential recorded on your other (inherited) hand. Each of the four main lines below is read from the feature you chose for it, and compared with the same line on your inherited hand.`,
+            `您选择了${domZH}手为惯用手，因此这只${handZH}手作为后天之手解读：选择、努力与经历如何重塑另一只（先天）手所记录的潜能。以下四条主要掌纹均依您为其所选的特征解读，并与先天之手的同一条纹路比较。`);
+      const lineBlock = PALM_LINE_ORDER.map(ln => `<strong>${L(ln)}</strong> - ${bt(H[ln].en, H[ln].zh)}: ${bt(H[ln].reading.en, H[ln].reading.zh)}`);
+      let compare = '';
+      let same = 0;
+      if (role === 'acquired') {
+        const rows = PALM_LINE_ORDER.map(ln => {
+          if (O[ln] === H[ln]) { same++; return `<strong>${L(ln)}</strong> - ${bt(`unchanged from your inherited hand (${H[ln].trait.en}).`, `与先天之手一致（${H[ln].trait.zh}）。`)}`; }
+          return `<strong>${L(ln)}</strong> - ${bt(`inherited: ${O[ln].trait.en} → now: ${H[ln].trait.en}.`, `先天：${O[ln].trait.zh} → 现今：${H[ln].trait.zh}。`)}`;
+        });
+        compare = `<br><br><strong>${bt('Compared with your inherited hand', '与先天之手比较')}:</strong><br>${rows.join('<br>')}`;
+      } else {
+        compare = `<br><br>${bt('This is the inherited baseline - see your other (dominant) hand for how each line has developed since.', '此为先天基准——各条纹路此后的发展请见另一只（惯用）手。')}`;
+      }
+      traits = lineBlock.join('<br>') + compare;
+      hl = PALM_LINE_ORDER.slice(0, 3).map(ln => bt(`${XIANG_SHU_PALM_LINES[ln].label.en.split(' (')[0]}: ${H[ln].trait.en}.`, `${XIANG_SHU_PALM_LINES[ln].label.zh}：${H[ln].trait.zh}。`));
+      pos = [
+        bt(`Career direction (Fate line): ${H.fate.trait.en}.`, `事业方向（事业线）：${H.fate.trait.zh}。`),
+        role === 'acquired'
+          ? bt(`${same} of the 4 main lines match your inherited hand; ${4 - same} have changed - a view of how much life has reshaped your starting point.`, `四条主要掌纹中有${same}条与先天之手一致、${4 - same}条已有变化——可见人生对您起点的重塑程度。`)
+          : bt('A stable baseline to compare against your dominant hand.', '可作为与惯用手对照的稳定基准。'),
+        bt('Built from features you reported yourself, not a generic template.', '依据您本人所报告的特征生成，而非通用模板。')
+      ];
+      neg = [
+        bt('Self-reported and coarse: four lines with four descriptors each. A trained palmist also weighs depth, colour, the mounts, hand shape and skin ridges.', '为自述且较粗略：四条纹路、每条四个描述项。专业手相师还会考量深浅、色泽、掌丘、手形与皮纹。'),
+        bt('Left/right roles follow the common rule that the non-dominant hand shows what you were born with and the dominant hand what you have made of it; some schools differ.', '左右手的角色依通行规则：非惯用手显示先天、惯用手显示后天；部分流派另有主张。'),
+        bt('Line reading is qualitative and skill-dependent.', '掌纹解读具主观性，取决于解读者的功力。')
+      ];
+      cau = [
+        bt('A reflective tool, not a prediction: a short life line does not mean a short life, and a missing fate line is not a bad sign.', '此为反思工具而非预测：生命线短并不代表寿命短，缺少事业线亦非坏兆。'),
+        bt('Lines can look different with time and with how you hold your hand - revisit if you re-check.', '纹路会随时间及手势不同而看似不同——重新检视时请重新输入。'),
+        bt('Never medical, legal or financial advice.', '绝非医疗、法律或财务建议。')
+      ];
   } else if (type === 'palm_left_deep') {
       chars = bt(`Left palm (non-dominant, congenital) reading of the major lines - Life, Head, Heart, and Fate.`, `左手（非惯用手，先天）主要纹路解读 —— 生命线、智慧线、感情线与事业线。`);
       exp = bt(`The left palm records inherited, congenital tendencies - the potential and disposition you were born with, largely fixed rather than shaped by later choices.`, `左手记录先天遗传倾向 —— 您与生俱来的潜能与性情，主要是固定的，较少受后天选择塑造。`);
@@ -8850,24 +8900,27 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
 
   // BUG 8 FIX: Consolidated + separate Face/Left Palm/Right Palm deep analyses
   // Face features this person last saved (pressing Generate), so the dropdowns return pre-selected and the Detailed Reading can use them.
+  const savedPalm = (u && prof && u.palmByPerson && u.palmByPerson[xiangShuPersonKey(prof)]) || {};
   const savedXs = (u && prof && u.xiangShuByPerson && u.xiangShuByPerson[xiangShuPersonKey(prof)]) || {};
   const artXiangShu = `
     <h2 class="section-header" ${idAttr('xiangshu')}>${flipTitle(`Xiang Shu (相术 - Physiognomy)`)}</h2>
     <article class="reading pdf-exclude">
       <span class="pill">${trPill(`Face Reading (面相) - Self-Report Calculator`)}</span>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${bt('This app has no photo analysis capability, so the generic sections below cannot reference your actual features. Select what best matches your own face for a genuinely personalized reading instead.', '本应用不具备照片分析功能，因此下方一般性内容无法参照您的实际五官。请选择最符合您面容的选项，以获得真正个人化的解读。')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${bt('This app has no photo analysis capability, so the generic sections below cannot reference your actual features. Look in a mirror and, for each feature, tap the picture that looks most like yours (or use the dropdown). The drawings are simple diagrams to help you choose, not photographs. Your answers give a genuinely personalized reading and are saved to your profile.', '本应用不具备照片分析功能，因此下方一般性内容无法参照您的实际五官。请对镜自照，针对每个部位点选与您最相似的图片（或使用下拉选单）。图示为帮助选择的简化示意，并非照片。您的答案将生成真正个人化的解读，并保存至档案。')}</div>
       <div class="field-row">
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Face Shape','脸型')}</span>
           <select id="xsFaceInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
             <option value="" disabled${savedXs.face ? '' : ' selected'}>${bt('Select','请选择')}</option>
             ${Object.keys(XIANG_SHU_FACE_SHAPE_OPTIONS).map(k => `<option value="${k}"${savedXs.face === k ? ' selected' : ''}>${bt(XIANG_SHU_FACE_SHAPE_OPTIONS[k].en, XIANG_SHU_FACE_SHAPE_OPTIONS[k].zh)}</option>`).join('')}
           </select>
+          ${xsPickerHTML('xsFaceInput_' + prefix, 'face', XIANG_SHU_FACE_SHAPE_OPTIONS, savedXs.face)}
         </label>
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Eyes','眼睛')}</span>
           <select id="xsEyesInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
             <option value="" disabled${savedXs.eyes ? '' : ' selected'}>${bt('Select','请选择')}</option>
             ${Object.keys(XIANG_SHU_EYES_OPTIONS).map(k => `<option value="${k}"${savedXs.eyes === k ? ' selected' : ''}>${bt(XIANG_SHU_EYES_OPTIONS[k].en, XIANG_SHU_EYES_OPTIONS[k].zh)}</option>`).join('')}
           </select>
+          ${xsPickerHTML('xsEyesInput_' + prefix, 'eyes', XIANG_SHU_EYES_OPTIONS, savedXs.eyes)}
         </label>
       </div>
       <div class="field-row">
@@ -8876,12 +8929,14 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
             <option value="" disabled${savedXs.nose ? '' : ' selected'}>${bt('Select','请选择')}</option>
             ${Object.keys(XIANG_SHU_NOSE_OPTIONS).map(k => `<option value="${k}"${savedXs.nose === k ? ' selected' : ''}>${bt(XIANG_SHU_NOSE_OPTIONS[k].en, XIANG_SHU_NOSE_OPTIONS[k].zh)}</option>`).join('')}
           </select>
+          ${xsPickerHTML('xsNoseInput_' + prefix, 'nose', XIANG_SHU_NOSE_OPTIONS, savedXs.nose)}
         </label>
         <label class="field" style="margin:0"><span style="font-size:12px">${bt('Mouth','嘴巴')}</span>
           <select id="xsMouthInput_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
             <option value="" disabled${savedXs.mouth ? '' : ' selected'}>${bt('Select','请选择')}</option>
             ${Object.keys(XIANG_SHU_MOUTH_OPTIONS).map(k => `<option value="${k}"${savedXs.mouth === k ? ' selected' : ''}>${bt(XIANG_SHU_MOUTH_OPTIONS[k].en, XIANG_SHU_MOUTH_OPTIONS[k].zh)}</option>`).join('')}
           </select>
+          ${xsPickerHTML('xsMouthInput_' + prefix, 'mouth', XIANG_SHU_MOUTH_OPTIONS, savedXs.mouth)}
         </label>
       </div>
       <label class="field"><span style="font-size:12px">${bt('Chin','下巴')}</span>
@@ -8889,9 +8944,36 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
           <option value="" disabled${savedXs.chin ? '' : ' selected'}>${bt('Select','请选择')}</option>
           ${Object.keys(XIANG_SHU_CHIN_OPTIONS).map(k => `<option value="${k}"${savedXs.chin === k ? ' selected' : ''}>${bt(XIANG_SHU_CHIN_OPTIONS[k].en, XIANG_SHU_CHIN_OPTIONS[k].zh)}</option>`).join('')}
         </select>
+          ${xsPickerHTML('xsChinInput_' + prefix, 'chin', XIANG_SHU_CHIN_OPTIONS, savedXs.chin)}
       </label>
       <button class="secondary btnCalcXiangShu" data-prefix="${prefix}" style="width:100%; padding:12px; background:var(--gold); color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:8px">${bt('Generate My Reading','生成我的解读')}</button>
       <div id="xsResult_${prefix}" style="margin-top:15px; display:none"></div>
+    </article>
+    <article class="reading pdf-exclude">
+      <span class="pill">${trPill(`Palm Reading (手相) - Self-Report Calculator`)}</span>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${bt('Hold each palm open under good light, fingers together, and compare it with the pictures. For each of the four main lines, tap the picture that looks most like yours (the drawings are simple diagrams - the highlighted line is the one being asked about). Pick your dominant hand (the one you write with): the other hand is read as what you were born with, the dominant hand as what you have made of it. Your answers are saved to your profile and feed the Left Palm and Right Palm deep analyses below, the Detailed Reading and the PDF.', '请在光线充足处将手掌张开、手指并拢，对照图示。针对四条主要掌纹，点选与您最相似的图片（图示为简化示意——高亮的线条即为所问的纹路）。请选择您的惯用手（写字的手）：另一只手解读为先天所带，惯用手解读为后天所成。您的答案将保存至档案，并用于下方的左手与右手深度分析、详细解读及PDF。')}</div>
+      <label class="field"><span style="font-size:12px">${bt('Dominant hand (the one you write with)', '惯用手（写字的手）')}</span>
+        <select id="xsPalmDom_${prefix}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
+          <option value="right"${savedPalm.dominant === 'left' ? '' : ' selected'}>${bt('Right hand', '右手')}</option>
+          <option value="left"${savedPalm.dominant === 'left' ? ' selected' : ''}>${bt('Left hand', '左手')}</option>
+        </select>
+      </label>
+      ${['left', 'right'].map(h => `
+      <h3 style="margin:14px 0 4px">${bt(h === 'left' ? 'Left hand' : 'Right hand', h === 'left' ? '左手' : '右手')}</h3>
+      ${PALM_LINE_ORDER.map(ln => {
+        const sid = `xsPalm_${h}_${ln}_${prefix}`;
+        const sel = savedPalm[h] && savedPalm[h][ln];
+        const L = XIANG_SHU_PALM_LINES[ln];
+        return `<label class="field" style="margin-top:10px"><span style="font-size:12px"><strong>${bt(L.label.en, L.label.zh)}</strong> - ${bt(L.blurb.en, L.blurb.zh)}</span>
+          <select id="${sid}" style="margin-top:5px; width:100%; padding:10px; border:1px solid #ccc; border-radius:4px" autocomplete="off">
+            <option value="" disabled${sel ? '' : ' selected'}>${bt('Select', '请选择')}</option>
+            ${Object.keys(L.options).map(k => `<option value="${k}"${sel === k ? ' selected' : ''}>${bt(L.options[k].en, L.options[k].zh)}</option>`).join('')}
+          </select>
+          ${xsPickerHTML(sid, ln, L.options, sel, h)}
+        </label>`;
+      }).join('')}`).join('')}
+      <button class="secondary btnCalcPalm" data-prefix="${prefix}" style="width:100%; padding:12px; background:var(--gold); color:#fff; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin-top:12px">${bt('Generate My Palm Reading', '生成我的手相解读')}</button>
+      <div id="xsPalmResult_${prefix}" style="margin-top:12px; display:none"></div>
     </article>
     <article class="reading">
       <span class="pill">${trPill(`Consolidated Face & Palmistry`)}</span>
@@ -8901,15 +8983,13 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       <span class="pill">${trPill(`Face (面相) Individual Deep Analysis`)}</span>
       ${generateDeepAnalysisData('face', p, {title: 'Face Reading Deep Analysis'})}
     </article>
-    <article class="reading">
+    <article class="reading" id="xsPalmLeftCard_${prefix}">
       <span class="pill">${trPill(`Left Palm (左手) Individual Deep Analysis`)}</span>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${bt('Honesty note: unlike the Face Reading above, this app does not yet collect palm line features (e.g. life, head, and heart line characteristics), so the section below remains general rather than personalized to your specific palm.', '诚实说明：与上方面相解读不同，本应用尚未收集掌纹特征（如生命线、智慧线、感情线等特点），因此以下内容仍属一般性说明，未针对您个人掌纹作个人化解读。')}</div>
-      ${generateDeepAnalysisData('palm_left_deep', p, {title: 'Left Palm Reading Deep Analysis'})}
+      ${renderPalmCardInner(p, 'left', savedPalm)}
     </article>
-    <article class="reading">
+    <article class="reading" id="xsPalmRightCard_${prefix}">
       <span class="pill">${trPill(`Right Palm (右手) Individual Deep Analysis`)}</span>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${bt('Honesty note: same limitation as the Left Palm section above - palm line features are not yet collected, so this remains general.', '诚实说明：与上方左手部分相同的限制——尚未收集掌纹特征，故此处内容仍属一般性说明。')}</div>
-      ${generateDeepAnalysisData('palm_right_deep', p, {title: 'Right Palm Reading Deep Analysis'})}
+      ${renderPalmCardInner(p, 'right', savedPalm)}
     </article>
   `;
 
@@ -9978,6 +10058,198 @@ function childrenAffinityValue(p) {
   return bt(`${c.tier.en} (${c.total} children star${c.total === 1 ? '' : 's'})`, `${c.tier.zh}（子女星${c.total}颗）`);
 }
 
+// ENHANCEMENT (reported: "for xiang shu, add in the left and right palm deep analysis"): the Left/Right Palm cards
+// used to be generic text under an honesty note ("this app does not yet collect palm line features"). They are now
+// personalised the same way the Face Reading is: the person describes the four main lines of each hand with the
+// calculator in the Xiang Shu section, the answers are saved against that person, and the two palm cards, the
+// Detailed Reading and every PDF read those saved answers.
+//
+// HONESTY LIMITS (stated in the output too): this is a coarse self-report - 4 lines x 4 descriptors per hand - not a
+// trained palmist's reading (which also weighs depth, colour, the mounts, hand shape and skin ridges). The wording
+// follows widely published chiromancy conventions (Life line = vitality and how energy is spent, NOT length of
+// life; Head line = thinking style; Heart line = emotional style; Fate line = career direction, which many people
+// do not have). Roles follow the common school rule that the NON-dominant hand shows what you were born with and the
+// DOMINANT hand what you have made of it - the person chooses their dominant hand, so a left-handed person is read
+// correctly; other schools differ. Never a prediction, never medical or financial advice.
+const PALM_LINE_ORDER = ['life', 'head', 'heart', 'fate'];
+const XIANG_SHU_PALM_LINES = {
+  life: {
+    label: { en: 'Life Line (生命线)', zh: '生命线' },
+    blurb: { en: 'the arc around the base of the thumb - vitality and how life energy is spent', zh: '环绕拇指根部的弧线——体现生命力及精力的运用方式' },
+    options: {
+      long_deep: { en: 'Long, deep and clear', zh: '长而深且清晰', trait: { en: 'strong, steady vitality', zh: '生命力强而稳定' },
+        reading: { en: 'Strong, steady vitality and resilience - energy that lasts and recovers well after setbacks. You tend to carry a reserve of stamina and are usually able to keep going through demanding periods.', zh: '生命力强而稳定，韧性十足——精力持久，遭遇挫折后恢复良好。您往往拥有体力与耐力的储备，通常能在吃紧的时期撑下去。' } },
+      short_faint: { en: 'Short or faint', zh: '短或浅淡', trait: { en: 'lighter stamina that rewards pacing', zh: '耐力较轻、宜按节奏运用' },
+        reading: { en: 'A short or light life line does NOT indicate a short life - that is a common misreading. Traditionally it points to energy that is best spent by pacing: lighter reserves of stamina, so good routines, rest and support matter more than raw reserves.', zh: '生命线短或浅并不代表寿命短——这是常见的误解。传统上它意指精力宜以节奏化的方式运用：耐力储备较轻，因此良好的作息、休息与支持比单靠体力储备更重要。' } },
+      broken_chained: { en: 'Broken, chained or with islands', zh: '断续、链状或有岛纹', trait: { en: 'energy that moves in phases, with turning points', zh: '精力分阶段、多转折' },
+        reading: { en: 'Energy that comes in distinct phases - periods of strong drive followed by periods of disruption, change or recovery. Life tends to be shaped by clear turning points and transitions rather than one unbroken stretch.', zh: '精力呈阶段性——强劲的时期之后接着波动、转变或恢复的时期。人生往往由明确的转折与过渡塑造，而非一段不间断的历程。' } },
+      forked_end: { en: 'Forked at the lower end', zh: '末端分叉', trait: { en: 'energy that divides between two directions (travel, versatility)', zh: '精力分向两处（行旅、多面）' },
+        reading: { en: 'Energy that divides into two directions later in life - traditionally associated with travel, relocation or a life lived between two places, and with versatility in how effort is spent.', zh: '精力于后半生分向两个方向——传统上与旅行、迁居或往返两地的生活相关，也代表精力运用上的多面性。' } }
+    }
+  },
+  head: {
+    label: { en: 'Head Line (智慧线)', zh: '智慧线' },
+    blurb: { en: 'the line across the palm below the fingers - thinking and decision-making style', zh: '横过掌心、位于手指下方的线——体现思考与决策方式' },
+    options: {
+      straight_long: { en: 'Straight and long', zh: '平直而长', trait: { en: 'logical, practical, thorough thinking', zh: '逻辑务实、周密' },
+        reading: { en: 'A logical, practical, thorough thinker - you prefer facts, structure and clear reasoning, stay focused on a problem until it is solved, and tend to be direct and well organised.', zh: '逻辑清晰、务实而周密的思考者——偏好事实、条理与明确的推理，会专注于问题直到解决，倾向于直接而有条理。' } },
+      sloping_curved: { en: 'Sloping or curving downward', zh: '向下斜行或弯曲', trait: { en: 'imaginative, intuitive thinking', zh: '想象与直觉导向' },
+        reading: { en: 'An imaginative, intuitive thinker - ideas come through association, creativity and feeling rather than strict logic; strong for design, writing and original solutions, with a need to guard against drifting from practical details.', zh: '富想象力与直觉的思考者——想法源自联想、创意与感受而非严格的逻辑；擅长设计、写作与原创性的解决之道，需留意不要脱离实际细节。' } },
+      short: { en: 'Short', zh: '短', trait: { en: 'direct, decisive thinking', zh: '直接果断' },
+        reading: { en: 'Direct and decisive - you reach conclusions quickly, prefer concise communication and practical action, and do not over-deliberate. A short head line is not a sign of lower intelligence; it describes a style that favours clarity and speed.', zh: '直接果断——结论形成得快，偏好简洁的沟通与务实行动，不过度斟酌。头线短并不代表智力较低，它描述的是重视清晰与效率的风格。' } },
+      forked: { en: 'Forked at the end', zh: '末端分叉', trait: { en: 'flexible thinking that sees both sides', zh: '灵活、能兼顾两面' },
+        reading: { en: 'Able to see both the practical and the imaginative side of a question - adaptable, a good communicator and persuasive, comfortable moving between analysis and creativity.', zh: '能同时看到问题务实与想象的两面——适应力强、善于沟通与说服，能在分析与创意之间自如转换。' } }
+    }
+  },
+  heart: {
+    label: { en: 'Heart Line (感情线)', zh: '感情线' },
+    blurb: { en: 'the line across the upper palm beneath the fingers - emotional style and how affection is shown', zh: '横过掌心上方、位于手指下方的线——体现情感风格及表达感情的方式' },
+    options: {
+      long_curved: { en: 'Long and curving upward', zh: '长且向上弯曲', trait: { en: 'warm, openly expressive feelings', zh: '温暖、感情外露' },
+        reading: { en: 'Warm, expressive and openly affectionate - feelings are shown freely, relationships matter a great deal, and there is an idealistic streak in love and friendship.', zh: '温暖、善于表达且情感外露——感受流露自然，十分重视关系，在爱情与友情中带有理想主义色彩。' } },
+      straight: { en: 'Straight and even', zh: '平直均匀', trait: { en: 'reserved, practical affection', zh: '含蓄务实' },
+        reading: { en: 'Reserved and practical in relationships - affection is shown through actions and reliability more than words, and feelings are considered before they are expressed.', zh: '在感情中含蓄务实——更多以行动与可靠来表达情意而非言语，情感会先思量后再表达。' } },
+      ends_middle: { en: 'Short, ending under the middle finger', zh: '较短，止于中指下方', trait: { en: 'independent, self-reliant in love', zh: '感情中独立自主' },
+        reading: { en: 'Self-reliant in love - independent, tends to keep emotions private and to look after your own needs and goals first; relationships work best with space and clear mutual respect.', zh: '在感情中独立自主——倾向将情绪放在心里，并先照顾自身的需求与目标；关系在拥有空间与清晰的相互尊重下最为顺畅。' } },
+      chained_broken: { en: 'Chained, broken or with islands', zh: '链状、断续或有岛纹', trait: { en: 'emotionally eventful and sensitive', zh: '情感丰富、经历起伏' },
+        reading: { en: 'An emotionally eventful heart - deep sensitivity and attachments that have been tested by change or disappointment; emotional ups and downs are part of the pattern, and so is the capacity to heal and grow from them.', zh: '情感经历丰富——敏感深刻，所建立的依恋经受过变动或失望的考验；情绪起伏是其模式的一部分，从中疗愈与成长的能力亦然。' } }
+    }
+  },
+  fate: {
+    label: { en: 'Fate Line (事业线)', zh: '事业线' },
+    blurb: { en: 'the vertical line up the centre of the palm - career direction and sense of purpose (many people have none)', zh: '纵贯掌心中央的线——体现事业方向与使命感（许多人并无此线）' },
+    options: {
+      clear_deep: { en: 'Clear and deep', zh: '清晰而深', trait: { en: 'a clear, defined career direction', zh: '事业方向明确' },
+        reading: { en: 'A strong sense of direction - a defined career path or vocation, with steady focus and a life organised around a clear purpose or role.', zh: '方向感强——有明确的事业路径或志业，专注稳定，人生围绕清晰的目标或职责而展开。' } },
+      faint_partial: { en: 'Faint or only partly present', zh: '浅淡或只部分出现', trait: { en: 'direction that firms up gradually', zh: '方向逐渐成形' },
+        reading: { en: 'Direction that emerges gradually - purpose is shaped more by circumstances, people and opportunities than set early; flexible, with a path that firms up over time.', zh: '方向逐渐浮现——志向更多由环境、人际与机会塑造而非早早确定；富弹性，路径随时间逐渐成形。' } },
+      absent: { en: 'Not visible', zh: '看不到', trait: { en: 'a self-directed, unscripted path', zh: '自主、不循既定轨道' },
+        reading: { en: 'No fixed path - self-directed and adaptable. A missing fate line is common and is not a negative sign; it is traditionally read as freedom from a single prescribed track, with the career shaped by your own choices.', zh: '没有固定的路径——自主而灵活。缺少事业线十分常见，并非负面征兆；传统上解读为不被单一轨道所限，事业由自身的选择塑造。' } },
+      shifting: { en: 'Broken or changing direction', zh: '断开或转向', trait: { en: 'a career that moves through distinct chapters', zh: '事业分段、多次转向' },
+        reading: { en: 'A career of distinct chapters - changes of field, role or direction, with reinvention at turning points; adaptable, and it helps to consolidate what each chapter taught.', zh: '事业分为不同的篇章——转换领域、角色或方向，在转折处重塑自我；适应力强，宜整合每一阶段所学。' } }
+    }
+  }
+};
+// Validates a saved palm answer set and resolves it to option objects. `saved` = { dominant, left:{life,head,heart,fate},
+// right:{...} }. Returns null unless every one of the 8 line answers is a known option. The NON-dominant hand is the
+// "congenital" (inherited) one, the dominant hand the "acquired" one.
+function computePalmReading(saved) {
+  if (!saved || !saved.left || !saved.right) return null;
+  const dominant = saved.dominant === 'left' ? 'left' : 'right';
+  const hands = {};
+  for (const h of ['left', 'right']) {
+    const o = {};
+    for (const ln of PALM_LINE_ORDER) {
+      const opt = XIANG_SHU_PALM_LINES[ln].options[saved[h][ln]];
+      if (!opt) return null;
+      o[ln] = opt;
+    }
+    hands[h] = o;
+  }
+  return { dominant, hands, role: { left: dominant === 'left' ? 'acquired' : 'congenital', right: dominant === 'right' ? 'acquired' : 'congenital' } };
+}
+function getSavedPalm(prefix) {
+  const u = activeUser(), prof = getProfileByPrefix(prefix);
+  return (u && prof && u.palmByPerson && u.palmByPerson[xiangShuPersonKey(prof)]) || null;
+}
+// Note + deep analysis for ONE palm card (used by the Xiang Shu section and re-used to refresh the card after the
+// calculator saves new answers).
+function renderPalmCardInner(p, handKey, saved) {
+  const personalised = !!computePalmReading(saved);
+  const note = personalised
+    ? bt('Personalised from the palm features you entered in the Palm Reading calculator above (saved to your profile).', '依据您在上方「手相」计算器中输入的掌纹特征个人化生成（已保存至您的档案）。')
+    : bt('General description for now. Enter your palm features in the Palm Reading calculator above (dominant hand plus the four main lines on each hand) and this section becomes a personalised reading of YOUR palm.', '目前为一般性说明。请在上方「手相」计算器中输入您的掌纹特征（惯用手及每只手的四条主要掌纹），本节即会变为针对您本人掌纹的个人化解读。');
+  const title = handKey === 'left' ? 'Left Palm Reading Deep Analysis' : 'Right Palm Reading Deep Analysis';
+  return `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">${note}</div>${generateDeepAnalysisData(handKey === 'left' ? 'palm_left_deep' : 'palm_right_deep', p, { title, palm: saved })}`;
+}
+
+// ENHANCEMENT (reported: "include images to guide the user to choose what the face, left and right palm features
+// are"): every option in the Face and Palm calculators now has a small illustration, shown as a row of tappable
+// picture tiles above its dropdown. The pictures are inline SVG line drawings generated here (no external images, so
+// they work offline and are never blocked) - clearly schematic diagrams of the feature, not photographs. A tile click
+// sets the dropdown (which stays, for accessibility and as the value the calculators read).
+const XS_INK = '#5c345b', XS_GOLD = '#b88635', XS_SOFT = '#cbbfae', XS_FILL = '#fbf6ec', XS_LIP = '#e9c4c4';
+function xsSvg(inner, extra) { return `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"${extra || ''}>${inner}</svg>`; }
+function xsPalmOutline() {
+  return `<g fill="${XS_FILL}" stroke="${XS_SOFT}" stroke-width="2"><rect x="22" y="28" width="56" height="66" rx="14"/><rect x="24" y="6" width="10" height="26" rx="5"/><rect x="36" y="2" width="10" height="30" rx="5"/><rect x="48" y="4" width="10" height="28" rx="5"/><rect x="60" y="10" width="10" height="22" rx="5"/><ellipse cx="15" cy="58" rx="8" ry="17" transform="rotate(-22 15 58)"/></g>`;
+}
+// path definitions for each palm line option, in a right-hand, palm-facing-viewer frame (thumb on the left)
+const XS_PALM_PATHS = {
+  life: { long_deep: ['M32 38 Q20 62 40 90'], short_faint: ['M32 38 Q26 52 30 62'], broken_chained: ['M32 38 Q24 50 26 60', 'M28 68 Q32 80 40 90'], forked_end: ['M32 38 Q20 62 40 84', 'M40 84 L35 93', 'M40 84 L49 91'] },
+  head: { straight_long: ['M30 42 L74 52'], sloping_curved: ['M30 42 Q56 48 70 76'], short: ['M30 42 L52 48'], forked: ['M30 42 L66 52', 'M66 52 L75 47', 'M66 52 L72 63'] },
+  heart: { long_curved: ['M76 40 Q54 24 34 34'], straight: ['M76 38 L34 38'], ends_middle: ['M76 38 Q64 32 54 36'], chained_broken: ['M76 38 Q70 32 64 38 Q58 44 52 36 Q46 30 40 38 Q36 42 32 36'] },
+  fate: { clear_deep: ['M50 92 L50 44'], faint_partial: ['M50 92 L50 80', 'M50 74 L50 62'], absent: [], shifting: ['M50 92 L50 74 L57 66 L57 46'] }
+};
+function xsPalmSVG(line, key, hand) {
+  const ctx = PALM_LINE_ORDER.filter(l => l !== line).map(l => {
+    const base = { life: 'long_deep', head: 'straight_long', heart: 'long_curved', fate: 'clear_deep' }[l];
+    return XS_PALM_PATHS[l][base].map(d => `<path d="${d}" fill="none" stroke="${XS_SOFT}" stroke-width="1.6" stroke-linecap="round"/>`).join('');
+  }).join('');
+  const paths = XS_PALM_PATHS[line][key] || [];
+  const faint = key === 'short_faint' || key === 'faint_partial';
+  let target = paths.map((d, i) => `<path d="${d}" fill="none" stroke="${XS_INK}" stroke-width="${faint ? 2.2 : 4.6}" stroke-linecap="round" stroke-linejoin="round"${faint ? ' opacity=".65"' : ''}${faint && i === 1 ? ' stroke-dasharray="3 3"' : ''}/>`).join('');
+  if (key === 'broken_chained' && line === 'life') target += `<ellipse cx="26" cy="64" rx="2.6" ry="4.4" fill="none" stroke="${XS_INK}" stroke-width="1.8"/>`;
+  if (key === 'absent') target = `<text x="50" y="66" text-anchor="middle" font-size="22" fill="${XS_GOLD}" font-family="Georgia,serif">?</text>`;
+  const body = xsPalmOutline() + ctx + target;
+  return xsSvg(hand === 'left' ? `<g transform="translate(100,0) scale(-1,1)">${body}</g>` : body);
+}
+function xsFaceFeatures() { return `<circle cx="37" cy="45" r="2.4" fill="${XS_INK}"/><circle cx="63" cy="45" r="2.4" fill="${XS_INK}"/><path d="M43 66 Q50 70 57 66" fill="none" stroke="${XS_INK}" stroke-width="2" stroke-linecap="round"/>`; }
+function xsOptionSVG(kind, key, hand) {
+  const o = `fill="none" stroke="${XS_INK}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"`;
+  if (['life', 'head', 'heart', 'fate'].includes(kind)) return xsPalmSVG(kind, key, hand);
+  if (kind === 'face') {
+    const shape = {
+      round: `<circle cx="50" cy="50" r="35" ${o}/>`,
+      square: `<rect x="17" y="15" width="66" height="70" rx="12" ${o}/>`,
+      oval: `<ellipse cx="50" cy="50" rx="27" ry="39" ${o}/>`,
+      triangle: `<path d="M18 26 Q18 15 30 15 L70 15 Q82 15 82 26 L61 80 Q50 92 39 80 Z" ${o}/>`,
+      long: `<rect x="26" y="7" width="48" height="86" rx="22" ${o}/>`
+    }[key] || '';
+    return xsSvg(shape + xsFaceFeatures());
+  }
+  if (kind === 'eyes') {
+    const eye = {
+      bright: `<path d="M12 50 Q50 18 88 50 Q50 82 12 50Z" ${o}/><circle cx="50" cy="50" r="14" fill="${XS_INK}"/><circle cx="55" cy="44" r="4" fill="#fff"/>`,
+      calm: `<path d="M12 50 Q50 32 88 50 Q50 68 12 50Z" ${o}/><circle cx="50" cy="52" r="10" fill="${XS_INK}"/><path d="M12 50 Q50 32 88 50" fill="none" stroke="${XS_INK}" stroke-width="5" stroke-linecap="round"/>`,
+      focused: `<path d="M8 50 Q50 38 92 50 Q50 59 8 50Z" ${o}/><circle cx="50" cy="49" r="6" fill="${XS_INK}"/>`,
+      gentle: `<path d="M12 44 Q46 24 88 58 Q46 74 12 44Z" ${o}/><circle cx="46" cy="52" r="11" fill="${XS_INK}"/><circle cx="50" cy="47" r="3.2" fill="#fff"/>`
+    }[key] || '';
+    return xsSvg(eye);
+  }
+  if (kind === 'nose') {
+    const nose = {
+      straight_full: `M34 6 L38 30 L62 60 C72 70 58 80 50 75 L40 77 L38 94`,
+      straight_pointed: `M34 6 L38 30 L68 62 L52 75 L40 77 L38 94`,
+      low_full: `M34 6 L38 30 Q44 52 52 61 C60 69 52 80 46 75 L40 77 L38 94`,
+      low_pointed: `M34 6 L38 30 Q43 50 52 64 L50 75 L40 77 L38 94`
+    }[key] || '';
+    return xsSvg(`<path d="${nose}" ${o}/>`);
+  }
+  if (kind === 'mouth') {
+    const mouth = {
+      large_thick: `<path d="M12 50 Q32 32 50 41 Q68 32 88 50 Q50 86 12 50Z" fill="${XS_LIP}" stroke="${XS_INK}" stroke-width="3" stroke-linejoin="round"/><path d="M12 50 Q50 58 88 50" ${o}/>`,
+      large_thin: `<path d="M12 50 Q50 43 88 50 Q50 58 12 50Z" ${o}/>`,
+      small_thick: `<path d="M30 50 Q40 36 50 42 Q60 36 70 50 Q50 80 30 50Z" fill="${XS_LIP}" stroke="${XS_INK}" stroke-width="3" stroke-linejoin="round"/><path d="M30 50 Q50 57 70 50" ${o}/>`,
+      small_thin: `<path d="M30 50 Q50 46 70 50 Q50 55 30 50Z" ${o}/>`
+    }[key] || '';
+    return xsSvg(mouth);
+  }
+  if (kind === 'chin') {
+    const chin = {
+      round_full: `M18 18 L18 44 Q18 84 50 84 Q82 84 82 44 L82 18`,
+      pointed_narrow: `M18 18 L22 44 Q30 66 50 90 Q70 66 78 44 L82 18`,
+      square_strong: `M18 18 L18 66 Q18 82 32 82 L68 82 Q82 82 82 66 L82 18`
+    }[key] || '';
+    return xsSvg(`<path d="${chin}" ${o}/><path d="M42 36 Q50 40 58 36" fill="none" stroke="${XS_INK}" stroke-width="2" stroke-linecap="round"/>`);
+  }
+  return '';
+}
+// A row of picture tiles for one feature. Clicking a tile sets the dropdown `selectId` (see the .xs-pick click handler).
+function xsPickerHTML(selectId, kind, options, selectedKey, hand) {
+  const big = ['life', 'head', 'heart', 'fate'].includes(kind) ? ' xs-picks-lg' : '';
+  return `<div class="xs-picks${big}" data-select="${selectId}">${Object.keys(options).map(k => `<button type="button" class="xs-pick" data-value="${k}" aria-pressed="${selectedKey === k ? 'true' : 'false'}">${xsOptionSVG(kind, k, hand)}<span>${bt(options[k].en, options[k].zh)}</span></button>`).join('')}</div>`;
+}
+
 function xiangShuPersonKey(rawProfile) {
   if (!rawProfile) return '';
   return [rawProfile.birthdate || '', rawProfile.birthtime || '', rawProfile.gender || '', (rawProfile.englishFirstName || '').toLowerCase()].join('|');
@@ -10112,6 +10384,22 @@ function buildIntegratedSignals(p, prefix) {
     add('xiangshu', 'wealth', 0, bt(`Nose (Wealth Palace 财帛宫) - ${r.nose.en}: ${r.nose.reading.en}`, `鼻（财帛宫）——${r.nose.zh}：${r.nose.reading.zh}`));
     add('xiangshu', 'love', 0, bt(`Mouth - ${r.mouth.en}: ${r.mouth.reading.en}`, `嘴——${r.mouth.zh}：${r.mouth.reading.zh}`));
     add('xiangshu', 'life', 0, bt(`Chin (later life) - ${r.chin.en}: ${r.chin.reading.en}`, `下巴（晚运）——${r.chin.zh}：${r.chin.reading.zh}`));
+  });
+  // Palm reading (saved from the Palm Reading calculator): the INHERITED hand is the baseline, the dominant hand the
+  // developed version; each line speaks to the life areas it traditionally governs.
+  safe('xiangshu', () => {
+    const sp = u && rawProf && u.palmByPerson ? u.palmByPerson[xiangShuPersonKey(rawProf)] : null;
+    const pr = computePalmReading(sp);
+    if (!pr) return;
+    const inh = pr.role.left === 'congenital' ? 'left' : 'right', acq = inh === 'left' ? 'right' : 'left';
+    const lineDoms = { life: ['life', 'health'], head: ['life', 'career'], heart: ['love'], fate: ['career'] };
+    PALM_LINE_ORDER.forEach(ln => {
+      const I = pr.hands[inh][ln], A = pr.hands[acq][ln], lab = XIANG_SHU_PALM_LINES[ln].label;
+      const name = bt(lab.en.split(' (')[0], lab.zh);
+      add('xiangshu', lineDoms[ln], 0, I === A
+        ? bt(`Palm - ${name}: ${I.en} on both hands (${I.trait.en}) - inherited and developed tendencies agree.`, `手相——${name}：双手皆为${I.zh}（${I.trait.zh}）——先天与后天倾向一致。`)
+        : bt(`Palm - ${name}: inherited ${I.trait.en}; developed ${A.trait.en}.`, `手相——${name}：先天${I.trait.zh}；后天${A.trait.zh}。`));
+    });
   });
 
   // ---- Da Yun / Liu Nian (the cascading month-by-month annual reading + each cycle's own rating) ----
@@ -10379,7 +10667,7 @@ function renderIntegratedOverview(integ) {
 // reading, and (where relevant) the honest reason a system contributed little or nothing.
 function renderIntegratedCoverage(integ) {
   const notes = {
-    xiangshu: integ.hasXiangShu ? '' : bt('Not on file - generate your Face Reading in the Xiang Shu section (Core tab) and it will be saved and included here.', '尚未记录——请在「相术」（核心分页）生成面相解读，系统将保存并纳入此处。'),
+    xiangshu: integ.hasXiangShu ? '' : bt('Not on file - generate your Face Reading and Palm Reading in the Xiang Shu section (Core tab) and they will be saved and included here.', '尚未记录——请在「相术」（核心分页）生成面相与手相解读，系统将保存并纳入此处。'),
     assets: integ.hasPrefix ? bt('Only items you have set (mobile, vehicle, address) appear.', '仅显示您已设置的项目（手机、车牌、地址）。') : '',
     compat: bt('Main profile only, and only if a Life Partner / Business Partner is on file.', '仅限主档案，且需已记录生命伴侣／事业伙伴。'),
     zeri: bt('Only the real Day-Branch clash/harmony rule is used; the Ze Ri tier also includes a date-arithmetic pattern that is not a metaphysical calculation, so it is not used.', '仅采用真实的日支冲合规则；择日等级另含一项日期算术规律，并非玄学推算，因此不予采用。'),
@@ -11947,6 +12235,45 @@ function initListeners() {
 
       // ENHANCEMENT (this round): Xiang Shu (面相) self-report calculator - reads its 5 inputs
       // directly, independent of any saved profile data.
+      // ENHANCEMENT (reported: "include images to guide the user to choose..."): tapping a picture tile sets the matching
+      // dropdown (which the calculators read) and shows that tile as selected.
+      const xsPick = e.target.closest && e.target.closest('.xs-pick');
+      if (xsPick) {
+          const row = xsPick.closest('.xs-picks');
+          const sel = row && document.getElementById(row.dataset.select);
+          if (sel) {
+              sel.value = xsPick.dataset.value;
+              row.querySelectorAll('.xs-pick').forEach(b => b.setAttribute('aria-pressed', b === xsPick ? 'true' : 'false'));
+          }
+      }
+
+      // ENHANCEMENT (reported: "for xiang shu, add in the left and right palm deep analysis"): Palm Reading calculator.
+      if (e.target.classList && e.target.classList.contains('btnCalcPalm')) {
+          const prefix = e.target.dataset.prefix;
+          const resBox = document.getElementById(`xsPalmResult_${prefix}`);
+          if (!resBox) return;
+          const val = (id) => document.getElementById(id)?.value || '';
+          const saved = { dominant: val(`xsPalmDom_${prefix}`) === 'left' ? 'left' : 'right', left: {}, right: {} };
+          ['left', 'right'].forEach(h => PALM_LINE_ORDER.forEach(ln => { saved[h][ln] = val(`xsPalm_${h}_${ln}_${prefix}`); }));
+          resBox.style.display = 'block';
+          if (!computePalmReading(saved)) {
+              resBox.innerHTML = `<div class="error" style="min-height:auto">${bt('Please choose a feature for all four lines on both hands.', '请为双手的四条纹路各选择一项特征。')}</div>`;
+              return;
+          }
+          const xsProf = getProfileByPrefix(prefix), xsUser = activeUser();
+          if (xsProf && xsUser) {
+              xsUser.palmByPerson = xsUser.palmByPerson || {};
+              xsUser.palmByPerson[xiangShuPersonKey(xsProf)] = saved;
+              saveState();
+              const pData = getProfileData(xsProf);
+              ['left', 'right'].forEach(h => {
+                  const card = document.getElementById(`xsPalm${h === 'left' ? 'Left' : 'Right'}Card_${prefix}`);
+                  if (card && pData) card.innerHTML = `<span class="pill">${trPill(h === 'left' ? 'Left Palm (左手) Individual Deep Analysis' : 'Right Palm (右手) Individual Deep Analysis')}</span>${renderPalmCardInner(pData, h, saved)}`;
+              });
+          }
+          resBox.innerHTML = `<div style="font-size:12px;color:var(--success);font-weight:700">${bt('Saved. The Left Palm and Right Palm deep analyses below now describe your own palms, and your Detailed Reading includes them.', '已保存。下方的左手与右手深度分析现已针对您本人的手掌，详细解读亦已纳入。')}</div>`;
+      }
+
       if (e.target.classList.contains('btnCalcXiangShu')) {
           const prefix = e.target.dataset.prefix;
           const resBox = document.getElementById(`xsResult_${prefix}`);
