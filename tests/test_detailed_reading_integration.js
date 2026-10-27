@@ -86,7 +86,7 @@ const html = run(`generateDetailedReading(getProfileData(), 'i')`);
 const text = html.replace(/<[^>]+>/g, ' ');
 ['Life', 'Career', 'Wealth', 'Luck', 'Love', 'Health', 'This year', 'Next year', 'This cycle', 'Next cycle', 'Right now'].forEach(d =>
   check(new RegExp('Cross-system view: ' + d).test(text), `a cross-system block follows the ${d} section`));
-check(/12\) Integrated Cross-System Overview/.test(text) && /13\) Systems Consulted for This Reading/.test(text), 'sections 12 (overview) and 13 (coverage) are present');
+check(/11\) Consolidated Reading of Your Added Information/.test(text) && /13\) Integrated Cross-System Overview/.test(text) && /14\) Systems Consulted for This Reading/.test(text), 'sections 11 (added information), 13 (overview) and 14 (coverage) are present');
 check(/Face shape - Round/.test(text) && /Nose \(Wealth Palace/.test(text), 'saved Xiang Shu features appear in the reading (life + wealth palace)');
 check(/Chinese name \(黄良杰\)/.test(text) && /English name: Five Grids/.test(text), 'both name systems appear');
 check(/Business Partner Bobby: \d+% strategic alignment/.test(text) && /Life Partner Tina: \d+% overall compatibility/.test(text), 'partner and business-partner compatibility appear on the main profile');

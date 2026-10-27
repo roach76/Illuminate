@@ -10255,9 +10255,84 @@ function xiangShuPersonKey(rawProfile) {
   return [rawProfile.birthdate || '', rawProfile.birthtime || '', rawProfile.gender || '', (rawProfile.englishFirstName || '').toLowerCase()].join('|');
 }
 
+// ---- Consolidating the person's ADDED information (self-reported Xiang Shu face + palm, plus name, personal assets and
+// partners) with the calculated charts (reported: "with the inclusion of the xiang shu info, the reading should include
+// these information as a consolidated reading ... taken into consideration for all aspects when additional information
+// is provided"). Three disclosed, non-numerological rules:
+//  1. POLARITY is given only where an option's own classical reading is explicitly favourable or explicitly challenging
+//     (e.g. a straight-bridge/full-tip nose = "classically favourable" Wealth Palace; a pointed narrow chin = "needing
+//     more deliberate planning"). Everything descriptive stays neutral - a short life line or a missing fate line is
+//     expressly NOT negative in the readings themselves.
+//  2. THEMES are tags read off the wording of each option's own reading (decisive / steady / intuitive / expressive /
+//     reserved / adaptable). A theme is called "recurring" only when 2 or more different features carry it.
+//  3. AGREEMENT per life area compares the lean (supportive vs cautionary signal count) of the added-information
+//     systems against the lean of all the other systems - a count comparison, not a probability or a weighted score.
+const XS_THEME_LABEL = {
+  decisive: { en: 'decisive and quick to conclude', zh: '果断、善于快速定论' },
+  steady: { en: 'steady, patient and methodical', zh: '沉稳、耐心、按部就班' },
+  intuitive: { en: 'intuitive and imaginative', zh: '直觉与想象导向' },
+  expressive: { en: 'open, warm and expressive', zh: '开朗、温暖、善于表达' },
+  reserved: { en: 'reserved, private and careful', zh: '内敛、私密、谨慎' },
+  adaptable: { en: 'adaptable and versatile', zh: '灵活、多面、适应力强' }
+};
+const XS_THEME_PAIRS = [['expressive', 'reserved'], ['steady', 'adaptable']];
+const XS_FACE_TAGS = {
+  face: { round: ['expressive', 'adaptable'], square: ['decisive'], oval: ['intuitive'], triangle: ['intuitive'], long: ['steady'] },
+  eyes: { bright: ['intuitive'], calm: ['steady'], focused: ['reserved'], gentle: ['expressive', 'adaptable'] },
+  nose: { straight_full: [], straight_pointed: ['decisive'], low_full: ['steady'], low_pointed: [] },
+  mouth: { large_thick: ['expressive'], large_thin: ['decisive', 'reserved'], small_thick: ['reserved'], small_thin: ['reserved'] },
+  chin: { round_full: [], pointed_narrow: [], square_strong: ['steady'] }
+};
+const XS_PALM_TAGS = {
+  life: { long_deep: ['steady'], short_faint: [], broken_chained: ['adaptable'], forked_end: ['adaptable'] },
+  head: { straight_long: ['steady'], sloping_curved: ['intuitive'], short: ['decisive'], forked: ['adaptable'] },
+  heart: { long_curved: ['expressive'], straight: ['reserved'], ends_middle: ['reserved'], chained_broken: [] },
+  fate: { clear_deep: ['steady'], faint_partial: ['adaptable'], absent: ['adaptable'], shifting: ['adaptable'] }
+};
+const XS_FACE_POL = { nose: { straight_full: 1, low_pointed: -1 }, chin: { round_full: 1, pointed_narrow: -1 } };
+const XS_PALM_POL = { life: { long_deep: 1 }, fate: { clear_deep: 1 } };
+const INTEG_ADDED_SYSTEMS = ['xiangshu', 'name', 'assets', 'compat'];
+
+function integLean(sigs) {
+  const up = sigs.filter(s => s.pol > 0).length, down = sigs.filter(s => s.pol < 0).length;
+  return { up, down, lean: up > down ? 1 : (down > up ? -1 : 0) };
+}
+// For one life area: how the ADDED-information systems' lean compares with every other system's. null if none of the
+// added-information systems has anything for this area.
+function integAddedVerdict(integ, domain) {
+  const all = integ.signals.filter(s => s.doms.includes(domain));
+  const added = all.filter(s => INTEG_ADDED_SYSTEMS.includes(s.sys));
+  if (!added.length) return null;
+  const base = all.filter(s => !INTEG_ADDED_SYSTEMS.includes(s.sys));
+  const la = integLean(added), lb = integLean(base);
+  const kind = la.lean === 0 ? 'descriptive' : (lb.lean === 0 ? 'added-only' : (la.lean === lb.lean ? 'agree' : 'differ'));
+  const names = INTEG_SYSTEMS.filter(sys => added.some(s => s.sys === sys.key));
+  return { kind, added: la, base: lb, names, addedCount: added.length };
+}
+function integAddedVerdictText(v) {
+  if (!v) return '';
+  const nm = v.names.map(n => bt(n.en, n.zh)).join(' / ');
+  const tl = (l) => `${l.up}▲ ${l.down}▼`;
+  const word = (l) => (l.lean > 0 ? bt('supportive', '偏有利') : bt('cautionary', '偏需留意'));
+  if (v.kind === 'agree') return bt(`${nm} lean ${word(v.added)} (${tl(v.added)}) and so do the calculated charts (${tl(v.base)}) - what you told us and what was computed point the same way.`, `${nm}${word(v.added)}（${tl(v.added)}），推算命盘亦${word(v.base)}（${tl(v.base)}）——您提供的资料与推算结果方向一致。`);
+  if (v.kind === 'differ') return bt(`${nm} lean ${word(v.added)} (${tl(v.added)}) while the calculated charts lean ${word(v.base)} (${tl(v.base)}) - they differ, so read it as a nuance to weigh rather than a contradiction: neither source is more "right".`, `${nm}${word(v.added)}（${tl(v.added)}），而推算命盘${word(v.base)}（${tl(v.base)}）——两者有出入，宜视为需权衡的细节而非矛盾：任何一方都不比另一方更「正确」。`);
+  if (v.kind === 'added-only') return bt(`${nm} lean ${word(v.added)} (${tl(v.added)}); the calculated charts are evenly split or informational here (${tl(v.base)}), so this adds the clearest tilt for this area.`, `${nm}${word(v.added)}（${tl(v.added)}）；推算命盘在此领域互有抵消或仅供参考（${tl(v.base)}），因此这为本领域提供了最明确的倾向。`);
+  return bt(`${nm} add description for this area without a rating of their own - they colour the reading rather than tilting it.`, `${nm}为本领域补充描述，但本身不作评级——为解读增添细节而不改变其倾向。`);
+}
+// Recurring themes across the saved face features and the dominant-hand palm lines (see rule 2 above).
+function integXsThemes(parts) {
+  const by = {};
+  parts.forEach(pt => (pt.tags || []).forEach(t => { (by[t] = by[t] || []).push(pt.label); }));
+  const recurring = Object.keys(by).filter(t => by[t].length >= 2).sort((x, y) => by[y].length - by[x].length).map(t => ({ tag: t, labels: by[t] }));
+  const pulls = XS_THEME_PAIRS.filter(([x, y]) => by[x] && by[y]).map(([x, y]) => ({ a: x, b: y, aLabels: by[x], bLabels: by[y] }));
+  return { recurring, pulls, featureCount: parts.length };
+}
+
 function buildIntegratedSignals(p, prefix) {
   const S = [];
   const unavailable = [];
+  const xsParts = [];
+  let hasFaceSaved = false, hasPalmSaved = false;
   const add = (sys, doms, pol, text) => { if (text) S.push({ sys, doms: [].concat(doms), pol, text }); };
   const safe = (sys, fn) => { try { fn(); } catch (e) { unavailable.push(sys); if (typeof console !== 'undefined') console.warn('Integrated reading: ' + sys + ' unavailable -', e && e.message); } };
   const a = computeDetailedReadingAnalysis(p);
@@ -10379,11 +10454,17 @@ function buildIntegratedSignals(p, prefix) {
     const saved = u && rawProf && u.xiangShuByPerson ? u.xiangShuByPerson[xiangShuPersonKey(rawProf)] : null;
     const r = saved ? computeXiangShuReading(saved) : null;
     if (!r) return;
+    hasFaceSaved = true;
+    const fp = (feat) => (XS_FACE_POL[feat] || {})[saved[feat]] || 0;
+    [['face', 'Face shape', '脸型'], ['eyes', 'Eyes', '眼睛'], ['nose', 'Nose', '鼻'], ['mouth', 'Mouth', '嘴'], ['chin', 'Chin', '下巴']].forEach(([feat, en, zh]) => {
+      xsParts.push({ label: { en: en.toLowerCase(), zh }, tags: (XS_FACE_TAGS[feat] || {})[saved[feat]] || [] });
+    });
     add('xiangshu', 'life', 0, bt(`Face shape - ${r.face.en}: ${r.face.reading.en}`, `脸型——${r.face.zh}：${r.face.reading.zh}`));
     add('xiangshu', 'life', 0, bt(`Eyes - ${r.eyes.en}: ${r.eyes.reading.en}`, `眼睛——${r.eyes.zh}：${r.eyes.reading.zh}`));
-    add('xiangshu', 'wealth', 0, bt(`Nose (Wealth Palace 财帛宫) - ${r.nose.en}: ${r.nose.reading.en}`, `鼻（财帛宫）——${r.nose.zh}：${r.nose.reading.zh}`));
+    // The nose is the Wealth Palace; its own readings also speak of "career path"/"wealth and career", so it feeds both areas.
+    add('xiangshu', ['wealth', 'career'], fp('nose'), bt(`Nose (Wealth Palace 财帛宫) - ${r.nose.en}: ${r.nose.reading.en}`, `鼻（财帛宫）——${r.nose.zh}：${r.nose.reading.zh}`));
     add('xiangshu', 'love', 0, bt(`Mouth - ${r.mouth.en}: ${r.mouth.reading.en}`, `嘴——${r.mouth.zh}：${r.mouth.reading.zh}`));
-    add('xiangshu', 'life', 0, bt(`Chin (later life) - ${r.chin.en}: ${r.chin.reading.en}`, `下巴（晚运）——${r.chin.zh}：${r.chin.reading.zh}`));
+    add('xiangshu', 'life', fp('chin'), bt(`Chin (later life) - ${r.chin.en}: ${r.chin.reading.en}`, `下巴（晚运）——${r.chin.zh}：${r.chin.reading.zh}`));
   });
   // Palm reading (saved from the Palm Reading calculator): the INHERITED hand is the baseline, the dominant hand the
   // developed version; each line speaks to the life areas it traditionally governs.
@@ -10391,12 +10472,15 @@ function buildIntegratedSignals(p, prefix) {
     const sp = u && rawProf && u.palmByPerson ? u.palmByPerson[xiangShuPersonKey(rawProf)] : null;
     const pr = computePalmReading(sp);
     if (!pr) return;
+    hasPalmSaved = true;
     const inh = pr.role.left === 'congenital' ? 'left' : 'right', acq = inh === 'left' ? 'right' : 'left';
     const lineDoms = { life: ['life', 'health'], head: ['life', 'career'], heart: ['love'], fate: ['career'] };
     PALM_LINE_ORDER.forEach(ln => {
       const I = pr.hands[inh][ln], A = pr.hands[acq][ln], lab = XIANG_SHU_PALM_LINES[ln].label;
       const name = bt(lab.en.split(' (')[0], lab.zh);
-      add('xiangshu', lineDoms[ln], 0, I === A
+      // Polarity/themes follow the DEVELOPED (dominant) hand: it is what the person has made of the inherited baseline.
+      xsParts.push({ label: { en: lab.en.split(' (')[0].toLowerCase(), zh: lab.zh }, tags: (XS_PALM_TAGS[ln] || {})[sp[acq][ln]] || [] });
+      add('xiangshu', lineDoms[ln], (XS_PALM_POL[ln] || {})[sp[acq][ln]] || 0, I === A
         ? bt(`Palm - ${name}: ${I.en} on both hands (${I.trait.en}) - inherited and developed tendencies agree.`, `手相——${name}：双手皆为${I.zh}（${I.trait.zh}）——先天与后天倾向一致。`)
         : bt(`Palm - ${name}: inherited ${I.trait.en}; developed ${A.trait.en}.`, `手相——${name}：先天${I.trait.zh}；后天${A.trait.zh}。`));
     });
@@ -10602,7 +10686,7 @@ function buildIntegratedSignals(p, prefix) {
     });
   });
 
-  return { signals: S, unavailable, hasXiangShu: S.some(s => s.sys === 'xiangshu'), hasPrefix: !!prefix };
+  return { signals: S, unavailable, hasXiangShu: S.some(s => s.sys === 'xiangshu'), hasFace: hasFaceSaved, hasPalm: hasPalmSaved, themes: integXsThemes(xsParts), hasPrefix: !!prefix };
 }
 
 function integPolGlyph(pol) { return pol > 0 ? '▲' : (pol < 0 ? '▼' : '●'); }
@@ -10621,6 +10705,7 @@ function renderIntegratedBlock(integ, domain, headingEN, headingZH) {
   const sigs = integ.signals.filter(s => s.doms.includes(domain));
   if (!sigs.length) return '';
   const t = integTally(sigs);
+  const addedVerdict = integAddedVerdictText(integAddedVerdict(integ, domain));
   const rows = INTEG_SYSTEMS.map(sys => {
     const mine = sigs.filter(s => s.sys === sys.key);
     if (!mine.length) return '';
@@ -10630,6 +10715,48 @@ function renderIntegratedBlock(integ, domain, headingEN, headingZH) {
     <div style="font-weight:700;color:var(--plum);margin-bottom:2px">${bt(headingEN, headingZH)}</div>
     <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${integTallyText(t)}</div>
     ${rows}
+    ${addedVerdict ? `<div style="margin-top:6px;padding:6px 8px;background:#f5f3ec;border-left:3px solid var(--gold);border-radius:0 6px 6px 0"><strong>${bt('Consolidated with your added information', '与您所提供资料的综合')}:</strong> ${addedVerdict}</div>` : ''}
+  </div>`;
+}
+// The consolidated reading of everything the person has ADDED beyond birth data (Xiang Shu face and palm, name,
+// personal assets, partners), set against the calculated charts, area by area. Also feeds the Full Total Summary.
+function integAddedConsolidation(integ) {
+  const rows = INTEG_DOMAINS.map(c => ({ c, v: integAddedVerdict(integ, c.key) })).filter(x => x.v);
+  const n = (k) => rows.filter(x => x.v.kind === k).length;
+  return { rows, agree: n('agree'), differ: n('differ'), addedOnly: n('added-only'), descriptive: n('descriptive') };
+}
+function integThemesHTML(integ) {
+  const th = integ.themes;
+  if (!th || !th.featureCount) return '';
+  const lab = (arr) => arr.map(l => bt(l.en, l.zh)).join(', ');
+  const rec = th.recurring.map(r => `<li><strong>${bt(XS_THEME_LABEL[r.tag].en, XS_THEME_LABEL[r.tag].zh)}</strong> - ${bt('shows up in', '出现于')} ${lab(r.labels)}</li>`).join('');
+  const pull = th.pulls.map(x => `<li>${bt(`${XS_THEME_LABEL[x.a].en} (${lab(x.aLabels)}) alongside ${XS_THEME_LABEL[x.b].en} (${lab(x.bLabels)}) - not a contradiction: it reads as a person who shifts between the two depending on the setting.`, `${XS_THEME_LABEL[x.a].zh}（${lab(x.aLabels)}）与${XS_THEME_LABEL[x.b].zh}（${lab(x.bLabels)}）并存——并非矛盾，而是依场合在两者之间切换。`)}</li>`).join('');
+  return `<div style="margin:6px 0"><strong>${bt('What your face and palm say together', '您的面相与手相综合所示')}:</strong>
+    ${rec ? `<ul style="margin:4px 0 4px;padding-left:20px">${rec}</ul>` : `<div style="margin:3px 0">${bt('No single trait repeats across two or more of your features - the features describe different sides of you rather than one dominant theme.', '没有任何特质在两项或以上特征中重复出现——各特征描述的是您的不同面向，而非单一主导主题。')}</div>`}
+    ${pull ? `<ul style="margin:4px 0;padding-left:20px">${pull}</ul>` : ''}
+    <div style="font-size:10px;color:var(--muted)">${bt(`Themes are tags read off the wording of each option's own reading; a theme is called recurring only when two or more different features carry it (${th.featureCount} features counted: your face features and the lines of your dominant hand).`, `主题标签取自各选项自身解读的措辞；仅当两项或以上不同特征同时具备时才称为「重复出现」（共计${th.featureCount}项特征：面部特征及惯用手的掌纹）。`)}</div>
+  </div>`;
+}
+function renderAddedInfoConsolidation(integ) {
+  const has = (k) => integ.signals.some(s => s.sys === k);
+  const status = [
+    [bt('Xiang Shu - face features', '相术——面相特征'), !!integ.hasFace],
+    [bt('Xiang Shu - left & right palm', '相术——左右手掌'), !!integ.hasPalm],
+    [bt('Name analysis', '姓名学'), has('name')],
+    [bt('Personal assets (mobile / vehicle / address)', '个人资产（手机／车牌／地址）'), has('assets')],
+    [bt('Partner / business-partner compatibility', '伴侣／事业伙伴契合度'), has('compat')]
+  ];
+  const chips = status.map(([l, on]) => `<li><span style="color:${on ? 'var(--success)' : 'var(--muted)'};font-weight:700">${on ? '✓' : '○'}</span> ${l} - ${on ? bt('on file and used below', '已记录，并用于下文') : bt('not on file yet', '尚未记录')}</li>`).join('');
+  const cons = integAddedConsolidation(integ);
+  const areaRows = cons.rows.map(x => `<li><strong>${bt(x.c.en, x.c.zh)}:</strong> ${integAddedVerdictText(x.v)}</li>`).join('');
+  const missing = !integ.hasFace || !integ.hasPalm
+    ? `<div style="margin-top:6px;font-size:11px;color:var(--muted)">${bt('Add your face features and palm lines in the Xiang Shu section (Core tab) and they are folded into every area of this reading automatically.', '请在「相术」（核心分页）填写面相与掌纹，系统会自动将其纳入本解读的各个领域。')}</div>` : '';
+  return `<div style="font-size:12px">${bt('Everything you have added beyond your birth data is combined here with the calculated charts. The list shows what is on file; each line compares the lean of your added information against the lean of all the other systems for that life area.', '您在出生资料之外所补充的全部资料，在此与推算命盘合并解读。清单列出已记录的项目；每一行将您所补充资料的倾向，与其他各体系在该领域的倾向作比较。')}
+    <ul style="margin:6px 0;padding-left:20px;list-style:none">${chips}</ul>
+    ${integThemesHTML(integ)}
+    ${areaRows ? `<div style="margin-top:6px"><strong>${bt('Area by area', '逐项领域')}:</strong><ul style="margin:4px 0;padding-left:20px">${areaRows}</ul></div>` : ''}
+    ${missing}
+    <div style="margin-top:6px;font-size:10px;color:var(--muted)">${bt('Agreement is a count of supportive versus cautionary signals, not a probability. Self-reported features are coarse; where they differ from the calculated charts, treat it as a nuance to weigh, not a contradiction.', '一致与否为有利与需留意信号的计数，并非概率。自述特征较为粗略；与推算命盘有出入时，宜视为需权衡的细节而非矛盾。')}</div>
   </div>`;
 }
 // Matrix: each system's net polarity per area (▲ all supportive, ▼ all cautionary, ◐ mixed, ● informational only,
@@ -10688,7 +10815,7 @@ function generateDetailedReading(p, prefix) {
   // Everything the other systems in the app say about the same life areas (see buildIntegratedSignals). If building
   // it ever fails, the BaZi-based reading below still renders exactly as before.
   let integ;
-  try { integ = buildIntegratedSignals(p, prefix); } catch (e) { console.warn('Integrated signals unavailable:', e); integ = { signals: [], unavailable: INTEG_SYSTEMS.map(x => x.key), hasXiangShu: false, hasPrefix: !!prefix }; }
+  try { integ = buildIntegratedSignals(p, prefix); } catch (e) { console.warn('Integrated signals unavailable:', e); integ = { signals: [], unavailable: INTEG_SYSTEMS.map(x => x.key), hasXiangShu: false, hasFace: false, hasPalm: false, themes: { recurring: [], pulls: [], featureCount: 0 }, hasPrefix: !!prefix }; }
   const blk = (dom, en, zh) => renderIntegratedBlock(integ, dom, bt('Cross-system view: ', '跨体系视角：') + bt(en, zh), '');
   const bazi = p.bazi;
   const dmElemEN = ELEM_NAMES_EN[a.dmElemIdx], dmElemZH = ELEM_NAMES_ZH[a.dmElemIdx];
@@ -10813,7 +10940,14 @@ function generateDetailedReading(p, prefix) {
     `${stemCN[a.nextCycle.stemIdx]}${branchCN[a.nextCycle.branchIdx]}，${a.nextCycle.age}至${a.nextCycle.age+9}岁（${a.nextCycle.calendarYearStart}至${a.nextCycle.calendarYearStart+9}年）：天干相对您的日主为「${a.nextCycleGod.cn}」，评级为「${bt(a.nextCycle.rating.tierEN, a.nextCycle.rating.tierZH)}」。地支藏干影响：「${a.nextCycleBranchHiddenGods.map(g2=>g2.cn).join('、')}」。${cycleFavVerdict(a.nextCycleFavourable)}`
   ) : `<em>${bt('No further Luck Pillar data available.','暂无更多大运资料。')}</em>`;
 
-  // 11) Full Total Summary
+  // 12) Full Total Summary (+ one consolidated line about the person's added information, when any is on file)
+  const addedCons = integAddedConsolidation(integ);
+  const addedSummaryEN = addedCons.rows.length
+    ? `Your added information (Xiang Shu, name, assets, partners) was weighed against the charts in ${addedCons.rows.length} life area${addedCons.rows.length === 1 ? '' : 's'}: it agrees in ${addedCons.agree}, differs in ${addedCons.differ}, gives the clearest tilt in ${addedCons.addedOnly} and adds description in ${addedCons.descriptive}.${integ.themes && integ.themes.recurring.length ? ` Recurring theme${integ.themes.recurring.length === 1 ? '' : 's'} across your face and palm: ${integ.themes.recurring.slice(0, 3).map(r => XS_THEME_LABEL[r.tag].en).join('; ')}.` : ''}`
+    : '';
+  const addedSummaryZH = addedCons.rows.length
+    ? `您所补充的资料（相术、姓名、资产、伴侣）已在${addedCons.rows.length}个生活领域与命盘相互对照：${addedCons.agree}项一致、${addedCons.differ}项有出入、${addedCons.addedOnly}项提供最明确倾向、${addedCons.descriptive}项补充描述。${integ.themes && integ.themes.recurring.length ? `面相与手相中重复出现的主题：${integ.themes.recurring.slice(0, 3).map(r => XS_THEME_LABEL[r.tag].zh).join('；')}。` : ''}`
+    : '';
   const totalHTML = bt(
     `A ${dmElemEN} Day Master, ${strengthLabel}, with ${g.en} as the dominant force shaping this chart.
      <ul style="margin:6px 0 0;padding-left:20px">
@@ -10822,6 +10956,7 @@ function generateDetailedReading(p, prefix) {
        <li><strong>Love:</strong> ${spouseHasKillingsOrOfficer ? 'requires effort and mutual respect for strength on both sides' : 'tends toward steadiness rather than high drama'}.</li>
        <li><strong>Health:</strong> the ${dmElemEN} system deserves the most consistent preventive attention.</li>
        <li><strong>Trajectory:</strong> ${a.isCycleTransitionNow ? `${a.nowYear} sits right at a genuine Luck Pillar turning point` : `you are mid-way through the ${stemCN[a.curCycle?.stemIdx]}${branchCN[a.curCycle?.branchIdx]} cycle`} - the ${a.curCycle ? bt(a.curCycle.rating.tierEN, a.curCycle.rating.tierZH) : ''} rating on this cycle gives a general sense of its overall tenor, though real outcomes depend on choices made within it, not the rating alone.</li>
+       ${addedSummaryEN ? `<li><strong>Added information:</strong> ${addedSummaryEN}</li>` : ''}
      </ul>`,
     `${dmElemZH}日主，${strengthLabel}，命盘以「${g.cn}」为主导影响力。
      <ul style="margin:6px 0 0;padding-left:20px">
@@ -10830,6 +10965,7 @@ function generateDetailedReading(p, prefix) {
        <li><strong>感情：</strong>${spouseHasKillingsOrOfficer ? '需要双方共同努力，并尊重彼此的强势个性' : '较倾向稳定而非强烈的戏剧性'}。</li>
        <li><strong>健康：</strong>${dmElemZH}对应的系统最值得持续的预防性关注。</li>
        <li><strong>大势：</strong>${a.isCycleTransitionNow ? `${a.nowYear}年正值大运真正的转折点` : `您目前正处于${stemCN[a.curCycle?.stemIdx]}${branchCN[a.curCycle?.branchIdx]}运程中段`}——此运程「${a.curCycle ? bt(a.curCycle.rating.tierEN, a.curCycle.rating.tierZH) : ''}」的评级仅提供整体基调的大致参考，实际结果仍取决于运程中的具体选择，而非评级本身。</li>
+       ${addedSummaryZH ? `<li><strong>补充资料：</strong>${addedSummaryZH}</li>` : ''}
      </ul>`
   );
 
@@ -10846,9 +10982,10 @@ function generateDetailedReading(p, prefix) {
     ${sectionHTML(8, 'Current Cycle Summary', '现行大运总览', curCycleHTML + blk('thisCycle', 'This cycle', '现行运'))}
     ${sectionHTML(9, `Next Year Summary - ${nextYearNum}`, `明年运势 - ${nextYearNum}年`, nextYearHTML + blk('nextYear', 'Next year', '明年'))}
     ${sectionHTML(10, 'Next Cycle Summary', '下一运程总览', nextCycleHTML + blk('nextCycle', 'Next cycle', '下一运'))}
-    ${sectionHTML(11, 'Full Total Summary', '总体命局摘要', totalHTML)}
-    ${sectionHTML(12, 'Integrated Cross-System Overview', '跨体系综合总览', renderIntegratedOverview(integ))}
-    ${sectionHTML(13, 'Systems Consulted for This Reading', '本解读所参考的体系', renderIntegratedCoverage(integ))}
+    ${sectionHTML(11, 'Consolidated Reading of Your Added Information', '您所补充资料的综合解读', renderAddedInfoConsolidation(integ))}
+    ${sectionHTML(12, 'Full Total Summary', '总体命局摘要', totalHTML)}
+    ${sectionHTML(13, 'Integrated Cross-System Overview', '跨体系综合总览', renderIntegratedOverview(integ))}
+    ${sectionHTML(14, 'Systems Consulted for This Reading', '本解读所参考的体系', renderIntegratedCoverage(integ))}
   `;
 }
 
