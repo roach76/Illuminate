@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-11-09T01:19:31.373Z",
+  "lastUpdated": "2026-11-09T21:53:44.718Z",
   "source": "https://check4d.co/sgpools/",
   "fourD": [
     {
@@ -166850,6 +166850,20 @@
     }
   ],
   "toto": [
+    {
+      "isoDate": "2026-11-09",
+      "date": "Mon 9 Nov 2026",
+      "drawNo": "4233",
+      "winning": [
+        5,
+        27,
+        29,
+        38,
+        40,
+        43
+      ],
+      "additional": 4
+    },
     {
       "isoDate": "2026-11-05",
       "date": "Thu 5 Nov 2026",
