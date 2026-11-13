@@ -4852,7 +4852,7 @@ const ROW_LABEL_ZH = {
   'Sun Sign':'太阳星座','Compatible Signs':'相合星座','Incompatible Signs':'不合星座',
   'Da Yun Start Year':'大运起运年','Exact Start Calculation':'精确起运计算','Current Age':'现龄',
   'Overall Compatibility Score':'总体契合度评分','Total Bone Weight Gap':'骨重差距',
-  'English Name':'英文姓名','Chinese Name':'中文姓名','Gender':'性别','Birth Date & Time':'出生日期与时间','Lunar Birth Date':'农历生辰','Zodiac Animal':'生肖','Kua Group & Number':'命卦组别与命卦数'
+  'Exact Jiao Yun Moment (first cycle)':'交运时刻（首运）','English Name':'英文姓名','Chinese Name':'中文姓名','Gender':'性别','Birth Date & Time':'出生日期与时间','Lunar Birth Date':'农历生辰','Zodiac Animal':'生肖','Kua Group & Number':'命卦组别与命卦数'
 };
 function trLabel(label) { return (lang === 'zh' && ROW_LABEL_ZH[label]) ? `${ROW_LABEL_ZH[label]} / ${label}` : label; }
 
@@ -4954,6 +4954,9 @@ function trPill(text) {
     return `${m[1] === 'Chinese' ? '中文' : '英文'}姓名与八字契合度 / ${text}`;
   }
   if ((m = text.match(/^(\d{4}) Da Yun Annual Deep Reading$/))) return `${m[1]}年大运流年深度解读 / ${text}`;
+  if ((m = text.match(/^(\d{4}) Yearly Insights$/))) return `${m[1]}年流年书 / ${text}`;
+  if ((m = text.match(/^(\d{4}) Annual Sector Guide$/))) return `${m[1]}年九宫方位指南 / ${text}`;
+  if (text === 'Natal Chart Notes - Stars, Growth Phases, Ten-God Counts') return `命盘批注——神煞、长生、十神计数 / ${text}`;
   if (text === 'Combined Name (English + Chinese) vs BaZi Compatibility') return `中英文姓名综合八字契合度 / ${text}`;
   // Handle "X Compatibility - Life/Business Partner" pattern dynamically
   if ((m = text.match(/^(.+?) - (Life Partner|Business Partner)$/))) {
@@ -7049,6 +7052,311 @@ function describeDaYunAnnualYear(p, yd) {
   };
 }
 
+// ============================================================
+// YEARLY INSIGHTS - display layer (reported: "attached sample reading from another provider ... incorporate the missing
+// items into the app by reading the profile and not making things up"). All facts come from computeYearlyInsights /
+// computeNatalStars / computeTenGodCounts in engine-metaphysics.js; this block only words them. Top-level tables are plain
+// {en, zh} pairs resolved with bt() at the point of output (see the bilingual pair-object note in CLAUDE.md).
+// ============================================================
+const YI_MONTH_EN = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const YI_MONTH_ZH = ['', '一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+// The 12 Jie (month-opening solar terms) keyed like JIE_TABLE (1 小寒 ... 12 大雪).
+const YI_JIE_NAME = {
+  1: { en: 'Minor Cold', zh: '小寒' }, 2: { en: 'Start of Spring', zh: '立春' }, 3: { en: 'Insects Awaken', zh: '惊蛰' }, 4: { en: 'Clear and Bright', zh: '清明' },
+  5: { en: 'Start of Summer', zh: '立夏' }, 6: { en: 'Grain in Ear', zh: '芒种' }, 7: { en: 'Minor Heat', zh: '小暑' }, 8: { en: 'Start of Autumn', zh: '立秋' },
+  9: { en: 'White Dew', zh: '白露' }, 10: { en: 'Cold Dew', zh: '寒露' }, 11: { en: 'Start of Winter', zh: '立冬' }, 12: { en: 'Major Snow', zh: '大雪' }
+};
+const YI_ELEM_BG = ['#e3edde', '#f6e1dc', '#efe2c0', '#e6e6e3', '#d9e7f2'];   // Wood Fire Earth Metal Water
+const YI_ELEM_FG = ['#2e6b34', '#a8382a', '#7a5a14', '#555a5f', '#27608c'];
+const YI_PALACE = {
+  year: { en: 'Year pillar', zh: '年柱', area: { en: 'roots and elders', zh: '根基与长辈' } },
+  month: { en: 'Month pillar', zh: '月柱', area: { en: 'work, parents and siblings', zh: '工作、父母与手足' } },
+  day: { en: 'Day pillar', zh: '日柱', area: { en: 'yourself and your partner', zh: '自己与伴侣' } },
+  hour: { en: 'Hour pillar', zh: '时柱', area: { en: 'children and the results of your work', zh: '子女与工作成果' } },
+  cycle: { en: 'ten-year cycle', zh: '大运', area: { en: "the decade's themes", zh: '这十年的主题' } },
+  flowYear: { en: 'the year', zh: '流年', area: { en: "the year's themes", zh: '今年的主题' } }
+};
+const YI_PALACE_DOMAIN = { year: 'life', month: 'career', day: 'love', hour: 'children', cycle: 'life', flowYear: 'life' };
+// kind -> label and generic meaning (子平真诠). `elem` kinds add the element at output time.
+const YI_KIND = {
+  'stem-bond': { label: { en: 'Stem bond', zh: '干合' }, mean: { en: 'draws together - matters come together more easily', zh: '相互牵合——事情较易谈成' } },
+  'stem-clash': { label: { en: 'Stem clash', zh: '干冲' }, mean: { en: 'a sharp difference of direction', zh: '方向上的尖锐分歧' } },
+  clash: { label: { en: 'Clash', zh: '冲' }, mean: { en: 'change, movement or tension', zh: '变动、迁移或拉扯' } },
+  'double-clash': { label: { en: 'Double clash', zh: '天克地冲' }, mean: { en: 'a strong, sudden shake-up - stem and branch both clash', zh: '强烈而突然的震动——天干地支同时相冲' } },
+  'branch-bond': { label: { en: 'Bond', zh: '六合' }, mean: { en: 'binds and harmonises; ties form', zh: '结合与调和，易生牵绊' } },
+  trine: { label: { en: 'Full combination', zh: '三合' }, mean: { en: 'a full supportive current gathers - momentum', zh: '三支成局，气势汇聚' } },
+  'half-trine': { label: { en: 'Half combination', zh: '半合' }, mean: { en: 'a half-formed current gathers - some momentum', zh: '半合成局，略有助势' } },
+  season: { label: { en: 'Seasonal combination', zh: '三会' }, mean: { en: 'a strong seasonal current gathers - great momentum', zh: '三会成方，气势极盛' } },
+  punish: { label: { en: 'Friction', zh: '刑' }, mean: { en: 'friction and pressure that ask for patience', zh: '摩擦与压力，宜耐心' } },
+  'self-punish': { label: { en: 'Self-friction', zh: '自刑' }, mean: { en: 'friction you create yourself - over-thinking or repeating a pattern', zh: '自己造成的摩擦——多思或重复旧模式' } },
+  harm: { label: { en: 'Misunderstanding', zh: '害' }, mean: { en: 'a quiet misunderstanding or hidden friction', zh: '暗中的误会或隐性摩擦' } },
+  break: { label: { en: 'Minor disruption', zh: '破' }, mean: { en: 'a small disruption to an arrangement', zh: '对既有安排的小干扰' } },
+  repeat: { label: { en: 'Repeat', zh: '伏吟' }, mean: { en: 'a theme returns - recurrence and restlessness', zh: '旧主题重现——反复与不安' } },
+  'repeat-pillar': { label: { en: 'Pillar repeat', zh: '伏吟' }, mean: { en: 'the whole pillar returns - a strong recurrence', zh: '整柱重现——强烈的反复' } },
+  'same-branch-stem-clash': { label: { en: 'Same branch, clashing stem', zh: '支同干冲' }, mean: { en: 'the same ground, opposed direction', zh: '同一根基，方向相逆' } },
+  'same-stem-branch-clash': { label: { en: 'Same stem, clashing branch', zh: '干同支冲' }, mean: { en: 'the same intent, disturbed ground', zh: '同一意图，根基受扰' } },
+  'store-open': { label: { en: 'Store opens', zh: '库开' }, mean: { en: 'what was stored is released - for better or worse', zh: '所藏之物被释放——利弊并存' } }
+};
+const YI_COMBO = {
+  xiaoshen: { zh: '枭神夺食', en: 'Indirect Seal blocks Eating God', mean: { en: 'output is blocked; over-thinking; appetite and digestion', zh: '产出受阻；多思；留意食欲与消化' } },
+  guanyin: { zh: '官印相生', en: 'Officer feeds the Seal', mean: { en: 'authority and support reinforce each other', zh: '权责与扶助相辅相成' } },
+  shayin: { zh: '杀印相生', en: 'Killings feed the Seal', mean: { en: 'pressure turns into backing', zh: '压力化为靠山' } },
+  shangguanpeiyin: { zh: '伤官配印', en: 'Hurting Officer paired with the Seal', mean: { en: 'talent given structure', zh: '才华得到章法' } },
+  guansha: { zh: '官杀混杂', en: 'Officer and Killings mixed', mean: { en: 'mixed signals from authority', zh: '权威方面的指令不一' } },
+  bijie: { zh: '比劫夺财', en: 'Peers contest Wealth', mean: { en: 'money is contested by peers and rivals', zh: '钱财易被同辈与对手分走' } },
+  caipoyin: { zh: '财破印', en: 'Wealth damages the Seal', mean: { en: 'study, documents and backing are disrupted', zh: '学业、文书与靠山受扰' } }
+};
+const YI_PHASE_MEAN = [
+  { en: 'Beginnings: a new stage is born and gathers strength.', zh: '起始：新阶段萌生并积蓄力量。' },
+  { en: 'Bathing: raw and exposed - change is easy, stability is not; keep your footing.', zh: '沐浴：尚显稚嫩外露——易变而难稳，宜守住根基。' },
+  { en: 'Capping: taking shape and being recognised; your role becomes visible.', zh: '冠带：渐成形、被认可，角色趋于明朗。' },
+  { en: 'Office: taking up responsibility from a position of real strength.', zh: '临官：以实在的力量承担责任。' },
+  { en: 'Prime: the peak of strength - powerful, and the time to avoid overreach.', zh: '帝旺：力量的顶点——强盛，亦宜防过度。' },
+  { en: 'Decline: strength begins to ebb; consolidate rather than expand.', zh: '衰：力量渐退，宜巩固而非扩张。' },
+  { en: 'Illness: a strained phase - protect your energy and ask for support.', zh: '病：吃紧的阶段——保护精力，主动求助。' },
+  { en: 'Death: the end of a phase; stillness before something new.', zh: '死：一个阶段的结束，新生之前的静止。' },
+  { en: 'Tomb: storing and consolidating; what you gather now stays hidden for a while.', zh: '墓：收藏与整固，所积暂时隐而不显。' },
+  { en: 'Extinction: a break point - the lowest ebb that clears the way for renewal.', zh: '绝：转折点——最低潮，为更新让路。' },
+  { en: 'Conception: new possibilities forming but not yet visible; protect fresh ideas.', zh: '胎：新的可能正在形成，尚未显现；保护新想法。' },
+  { en: 'Nurture: what was seeded is protected and fed; accept support and let it grow.', zh: '养：播下的种子受到护持与滋养；接受支持，让它成长。' }
+];
+// Practice by element: used both as "go with it" (a favourable month) and as the balancing practice (an attention month).
+const YI_ELEM_PRACTICE = [
+  { theme: { en: 'growth, planning, new starts', zh: '成长、规划、新开始' }, lines: [{ en: 'plan before you launch, and write the plan down', zh: '开始之前先规划，并写下来' }, { en: 'finish what you started before opening something new', zh: '先完成已开始的事，再开新局' }, { en: 'learn something new in small steps', zh: '循序渐进学点新东西' }] },
+  { theme: { en: 'visibility, expression, warmth', zh: '显现、表达、温度' }, lines: [{ en: 'be visible where it counts', zh: '在关键处主动露面' }, { en: 'reach out warmly to people', zh: '热情地联络他人' }, { en: 'mark the small wins', zh: '为小小的进展留个纪念' }] },
+  { theme: { en: 'stability, trust, talking things through', zh: '稳定、信任、把话说开' }, lines: [{ en: 'say the difficult thing plainly and early', zh: '难开口的话，早说、直说' }, { en: 'keep routines steady and dependable', zh: '保持作息稳定可靠' }, { en: 'build trust before you ask for it', zh: '先建立信任，再开口求助' }] },
+  { theme: { en: 'structure, decisiveness, clear boundaries', zh: '条理、决断、界线' }, lines: [{ en: 'agree boundaries up front', zh: '事先约定好界线' }, { en: 'trim commitments you no longer need', zh: '精简不再需要的承诺' }, { en: 'read the fine print before you sign', zh: '签字之前细读条款' }] },
+  { theme: { en: 'rest, reflection, going with the flow', zh: '休息、沉淀、顺流' }, lines: [{ en: 'protect your sleep and recovery time', zh: '守住睡眠与恢复的时间' }, { en: 'make room for quiet reflection', zh: '留出安静反思的空间' }, { en: 'check in with people you have lost touch with', zh: '问候久未联系的人' }] }
+];
+// Local helpers
+function yiFmt(ms, withTime) {
+  const d = new Date(ms + 8 * 3600e3);
+  const day = d.getUTCDate(), mo = d.getUTCMonth() + 1, hh = String(d.getUTCHours()).padStart(2, '0'), mm = String(d.getUTCMinutes()).padStart(2, '0');
+  const dateEN = `${day} ${YI_MONTH_EN[mo].slice(0, 3)}`, dateZH = `${mo}月${day}日`;
+  return bt(dateEN + (withTime ? ` ${hh}:${mm}` : ''), dateZH + (withTime ? ` ${hh}:${mm}` : ''));
+}
+function yiFmtY(ms) {
+  const d = new Date(ms + 8 * 3600e3);
+  return bt(`${d.getUTCDate()} ${YI_MONTH_EN[d.getUTCMonth() + 1].slice(0, 3)} ${d.getUTCFullYear()}`, `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`);
+}
+function yiBil(en, zh) { return bt(`${en} ${zh}`, zh); }
+function yiElemName(i) { return bt(ELEM_NAMES_EN[i], ELEM_NAMES_ZH[i]); }
+function yiTagStyle(pol) {
+  return pol > 0 ? 'background:#e0f0e0;color:#24592a' : (pol < 0 ? 'background:#f6e7c9;color:#7a4f0a' : 'background:#ececea;color:#4a4a48');
+}
+function yiTag(text, pol, tip) { return `<span${tip ? tipAttr(tip) : ''} style="display:inline-block;margin:1px 2px 1px 0;padding:1px 6px;border-radius:8px;font-size:9.5px;line-height:1.5;${yiTagStyle(pol)}">${text}</span>`; }
+// A palace reference for an interaction, e.g. "Day branch (your partner)". `part` matters only for the Day pillar.
+function yiPalaceRef(i) {
+  const names = i.tgt.split(',').filter(Boolean);
+  return names.map(k => {
+    const pa = YI_PALACE[k]; if (!pa) return k;
+    let label = bt(pa.en, pa.zh);
+    if (k === 'day') label = i.part === 'stem' ? bt('Day stem (you)', '日干（您自己）') : (i.part === 'branch' ? bt('Day branch (partner and home)', '日支（伴侣与家）') : label);
+    else if (i.part === 'stem' && YI_PALACE[k]) label = bt(`${pa.en.replace('pillar', 'stem')}`, `${pa.zh.replace('柱', '干')}`);
+    else if (i.part === 'branch' && (k === 'year' || k === 'month' || k === 'hour')) label = bt(`${pa.en.replace('pillar', 'branch')}`, `${pa.zh.replace('柱', '支')}`);
+    return label;
+  }).join(bt(' and ', '、'));
+}
+function yiInteractionLabel(i) {
+  const k = YI_KIND[i.kind]; if (!k) return i.kind;
+  const el = (i.elem !== undefined && i.elem !== null) ? (['store-open'].includes(i.kind) ? ` → ${yiElemName(i.elem)}` : (['branch-bond', 'trine', 'half-trine', 'season'].includes(i.kind) ? ` → ${yiElemName(i.elem)}` : '')) : '';
+  return `${yiBil(k.label.en, k.label.zh)} · ${yiPalaceRef(i)}${el}`;
+}
+function yiInteractionTip(i) {
+  const k = YI_KIND[i.kind]; if (!k) return '';
+  const tgtAreas = i.tgt.split(',').filter(Boolean).map(t => YI_PALACE[t] ? bt(YI_PALACE[t].area.en, YI_PALACE[t].area.zh) : '').filter(Boolean).join(bt(' and ', '、'));
+  return bt(`${k.label.en} (${k.label.zh}) with ${yiPalaceRef(i)}: ${k.mean.en}${tgtAreas ? ` - around ${tgtAreas}` : ''}.`, `与${yiPalaceRef(i)}${k.label.zh}：${k.mean.zh}${tgtAreas ? `——涉及${tgtAreas}` : ''}。`);
+}
+function yiInteractionSentence(i, subject) {
+  const k = YI_KIND[i.kind]; if (!k) return '';
+  const tgtAreas = i.tgt.split(',').filter(Boolean).map(t => YI_PALACE[t] ? bt(YI_PALACE[t].area.en, YI_PALACE[t].area.zh) : '').filter(Boolean).join(bt(' and ', '、'));
+  const el = (i.elem !== undefined && i.elem !== null) ? bt(` (tends toward ${ELEM_NAMES_EN[i.elem]})`, `（趋向${ELEM_NAMES_ZH[i.elem]}）`) : '';
+  return bt(`${subject.en} - ${k.label.en} (${k.label.zh}) with your ${yiPalaceRef(i)}${el}: ${k.mean.en}${tgtAreas ? `; this touches ${tgtAreas}` : ''}.`,
+    `${subject.zh}——与您的${yiPalaceRef(i)}形成${k.label.zh}${el}：${k.mean.zh}${tgtAreas ? `；涉及${tgtAreas}` : ''}。`);
+}
+function yiComboLabel(id) { const c = YI_COMBO[id]; return yiBil(c.en, c.zh); }
+function yiStarTag(id) {
+  const s = SHEN_SHA_INFO[id]; if (!s) return '';
+  const pol = s.nature === 'auspicious' ? 1 : (s.nature === 'caution' ? -1 : 0);
+  return yiTag(yiBil(s.en, s.zh), pol, bt(`${s.en} (${s.zh}) - traditionally: ${s.mean.en}.`, `${s.zh}——传统上：${s.mean.zh}。`));
+}
+function yiPhaseHTML(phase) {
+  return `<strong>${yiBil(phase.en, phase.zh)}</strong> - ${bt(YI_PHASE_MEAN[phase.index].en, YI_PHASE_MEAN[phase.index].zh)}`;
+}
+function yiLiChunYearNow() {
+  const now = new Date(), y = now.getUTCFullYear();
+  return now.getTime() < jieMoment(y, 2).getTime() ? y - 1 : y;
+}
+function yiPracticeHTML(m) {
+  if (m.favourable) {
+    const pr = YI_ELEM_PRACTICE[m.elem];
+    return `<strong>${bt('Go with it', '顺势')}: ${yiElemName(m.elem)}</strong><br><span style="color:var(--muted)">${bt(pr.theme.en, pr.theme.zh)}</span>`;
+  }
+  if (m.balancing) {
+    const pr = YI_ELEM_PRACTICE[m.balancing.elem];
+    return `<strong>${bt('Key element', '用')}: ${yiElemName(m.balancing.elem)}</strong> <span style="color:var(--muted)">(${bt(m.balancing.how === 'restrain' ? `restrains ${ELEM_NAMES_EN[m.elem]}` : `drains ${ELEM_NAMES_EN[m.elem]}`, m.balancing.how === 'restrain' ? `制${ELEM_NAMES_ZH[m.elem]}` : `泄${ELEM_NAMES_ZH[m.elem]}`)})</span><br><span style="color:var(--muted)">${bt(pr.theme.en, pr.theme.zh)}</span>`;
+  }
+  return `<strong>${bt('Keep steady', '守常')}</strong>`;
+}
+const YI_TH = 'padding:4px 6px;border:1px solid #eee;font-size:10px;background:#f4f4f4;text-align:left';
+const YI_TD = 'padding:4px 6px;border:1px solid #eee;font-size:10px;vertical-align:top;line-height:1.5';
+
+function generateYearlyInsightsOne(p, y) {
+  const g = (en, zh) => bt(en, zh);
+  const gz = `${stemCN[y.liuNian.stemIdx]}${branchCN[y.liuNian.branchIdx]}`;
+  const animal = branches[y.liuNian.branchIdx];
+  const elemEN = ELEM_NAMES_EN[y.elem];
+  const cyc = y.cycle ? `${stemCN[y.cycle.stemIdx]}${branchCN[y.cycle.branchIdx]}` : '';
+  const changeCycle = (p.daYunPillars || []).map(c => ({ c, ms: Date.parse(c.startISO) })).find(x => x.ms >= y.startMs && x.ms < y.endMs);
+  const cycleLine = y.cycle ? g(`Ten-year cycle: ${cyc}${y.cycleYearNumber ? ` - year ${y.cycleYearNumber} of 10` : ''} (began ${yiFmtY(y.cycle.startMs)})${changeCycle ? `; the next cycle ${stemCN[changeCycle.c.stemIdx]}${branchCN[changeCycle.c.branchIdx]} begins ${yiFmtY(changeCycle.ms)}, inside this year` : ''}.`,
+    `大运：${cyc}${y.cycleYearNumber ? `——第${y.cycleYearNumber}年（共10年）` : ''}（始于${yiFmtY(y.cycle.startMs)}）${changeCycle ? `；下一运${stemCN[changeCycle.c.stemIdx]}${branchCN[changeCycle.c.branchIdx]}于${yiFmtY(changeCycle.ms)}交运，落在本年内` : ''}。`) : '';
+  // 12-month strip (real solar months, element colour = the month stem's element)
+  const strip = y.months.map(m => `<div${tipAttr(g(`${YI_MONTH_EN[m.calendarMonth]} (${YI_JIE_NAME[m.key].en}): ${stemCN[m.stemIdx]}${branchCN[m.branchIdx]}, ${ELEM_NAMES_EN[m.elem]} - ${m.favourable ? 'favourable' : 'attention'} for you.`, `${YI_MONTH_ZH[m.calendarMonth]}（${YI_JIE_NAME[m.key].zh}）：${stemCN[m.stemIdx]}${branchCN[m.branchIdx]}，${ELEM_NAMES_ZH[m.elem]}——对您${m.favourable ? '顺' : '宜留意'}。`))} style="text-align:center;padding:4px 2px;border-radius:6px;background:${YI_ELEM_BG[m.elem]};color:${YI_ELEM_FG[m.elem]}">
+      <div style="font-size:10px">${g(YI_MONTH_EN[m.calendarMonth].slice(0, 3), YI_MONTH_ZH[m.calendarMonth])}</div>
+      <div style="font-size:15px;line-height:1.2">${stemCN[m.stemIdx]}<br>${branchCN[m.branchIdx]}</div>
+      <div style="font-size:8.5px;line-height:1.2">${g(YI_JIE_NAME[m.key].en, YI_JIE_NAME[m.key].zh)}</div>
+      <div style="font-size:9px">${yiFmt(m.startMs, false)}</div>
+      <div style="font-size:9px;font-weight:700">${m.favourable ? g('Fav', '顺') : g('Attn', '留意')}</div>
+    </div>`).join('');
+  // year meets the four pillars (+ the decade)
+  const palaces = ['hour', 'day', 'month', 'year', 'cycle'];
+  const pillarCells = palaces.map(k => {
+    const mine = y.interactions.filter(i => i.tgt.split(',').includes(k));
+    const nat = { year: p.bazi.yearStemIdx, month: p.bazi.monthStemIdx, day: p.bazi.dayStemIdx, hour: p.bazi.hourStemIdx }[k];
+    const br = { year: p.bazi.yearBranchIdx, month: p.bazi.monthBranchIdx, day: p.bazi.dayBranchIdx, hour: p.bazi.hourBranchIdx }[k];
+    const head = k === 'cycle' ? (y.cycle ? `${stemCN[y.cycle.stemIdx]}${branchCN[y.cycle.branchIdx]}` : '-') : `${stemCN[nat]}${branchCN[br]}`;
+    return `<td style="${YI_TD}"><div style="font-size:10px;color:var(--muted)">${g(YI_PALACE[k].en, YI_PALACE[k].zh)}</div><div style="font-size:15px">${head}</div>${mine.length ? mine.map(i => yiTag(`${g(YI_KIND[i.kind].label.en, YI_KIND[i.kind].label.zh)}${i.elem !== undefined && i.elem !== null ? ' → ' + yiElemName(i.elem) : ''}`, INTERACTION_POLARITY[i.kind], yiInteractionTip(i))).join('') : `<span style="color:var(--muted)">${g('no interaction', '无牵动')}</span>`}</td>`;
+  }).join('');
+  // helps / watch
+  const subj = { en: `${y.year} ${gz}`, zh: `${y.year}年${gz}` };
+  const helps = [], watch = [];
+  y.interactions.forEach(i => { const pol = INTERACTION_POLARITY[i.kind]; const s = yiInteractionSentence(i, subj); if (pol > 0) helps.push(s); else if (pol < 0) watch.push(s); });
+  y.combos.forEach(id => { const c = YI_COMBO[id], pol = TEN_GOD_COMBO_INFO[id].pol; const s = g(`${y.year} ${gz} stem forms ${c.en} (${c.zh}): ${c.mean.en}.`, `${y.year}年${gz}天干与命盘形成${c.zh}：${c.mean.zh}。`); (pol > 0 ? helps : watch).push(s); });
+  y.stars.forEach(id => { const s = SHEN_SHA_INFO[id]; const sent = g(`The ${y.year} pillar carries ${s.en} (${s.zh}) - traditionally: ${s.mean.en}.`, `${y.year}年流年柱带${s.zh}——传统上：${s.mean.zh}。`); if (s.nature === 'auspicious') helps.push(sent); else if (s.nature === 'caution') watch.push(sent); });
+  helps.unshift(y.favourable ? g(`The year's stem element (${elemEN}) is on the favourable side of your Useful God (用神) verdict.`, `流年天干五行（${ELEM_NAMES_ZH[y.elem]}）属您用神判断的有利一方。`) : '');
+  watch.unshift(!y.favourable ? g(`The year's stem element (${elemEN}) is on the unfavourable side of your Useful God (用神) verdict - read the months below for where it eases.`, `流年天干五行（${ELEM_NAMES_ZH[y.elem]}）属您用神判断的不利一方——请参阅下列各月，看何时缓和。`) : '');
+  const li = (arr) => arr.filter(Boolean).map(t => `<li>${t}</li>`).join('') || `<li style="color:var(--muted)">${g('nothing notable', '无特别事项')}</li>`;
+  // month table
+  const rows = y.months.map(m => {
+    const lyGz = `${stemCN[m.stemIdx]}${branchCN[m.branchIdx]}`;
+    const inter = m.interactions.map(i => yiTag(yiInteractionLabel(i), INTERACTION_POLARITY[i.kind], yiInteractionTip(i))).join('');
+    const combos = m.combos.map(id => yiTag(yiComboLabel(id), TEN_GOD_COMBO_INFO[id].pol, g(`${YI_COMBO[id].en}: ${YI_COMBO[id].mean.en}.`, `${YI_COMBO[id].zh}：${YI_COMBO[id].mean.zh}。`))).join('');
+    const stars = m.stars.map(yiStarTag).join('');
+    const endMs = m.endMs;
+    return `<tr>
+      <td style="${YI_TD};white-space:nowrap"><strong>${g(YI_MONTH_EN[m.calendarMonth], YI_MONTH_ZH[m.calendarMonth])}</strong> <span style="color:var(--muted)">${branchCN[m.branchIdx]}${g(' month', '月')}</span><br><span style="color:var(--muted)">${yiFmt(m.startMs, true)} – ${yiFmt(endMs, false)}</span><br><span style="color:var(--muted)">${g(YI_JIE_NAME[m.key].en, YI_JIE_NAME[m.key].zh)}</span></td>
+      <td style="${YI_TD}"><div style="font-size:16px;line-height:1.2;color:${YI_ELEM_FG[m.elem]}">${lyGz}</div>${g(m.stemGod.en, m.stemGod.cn)} / ${g(m.branchGod.en, m.branchGod.cn)}<br><span style="color:var(--muted)">${yiBil(m.phase.en, m.phase.zh)}</span>${m.cycle ? `<br><span style="color:var(--muted)">${g('cycle', '大运')} ${stemCN[m.cycle.stemIdx]}${branchCN[m.cycle.branchIdx]}${m.cycleChanges ? g(' (changes this month)', '（本月交运）') : ''}</span>` : ''}</td>
+      <td style="${YI_TD};background:${YI_ELEM_BG[m.elem]}"><strong>${m.favourable ? g('Favourable', '顺') : g('Attention', '留意')}</strong><br>${yiElemName(m.elem)}<br>${yiPracticeHTML(m)}</td>
+      <td style="${YI_TD}">${inter || `<span style="color:var(--muted)">${g('no interaction', '无牵动')}</span>`}</td>
+      <td style="${YI_TD}">${combos || `<span style="color:var(--muted)">-</span>`}</td>
+      <td style="${YI_TD}">${stars || `<span style="color:var(--muted)">-</span>`}</td>
+    </tr>`;
+  }).join('');
+  // practice by element (visible, so the PDF carries the wording the tags only hint at)
+  const practiceRows = [0, 1, 2, 3, 4].map(e => `<tr><td style="${YI_TD};background:${YI_ELEM_BG[e]};color:${YI_ELEM_FG[e]};white-space:nowrap"><strong>${yiElemName(e)}</strong></td><td style="${YI_TD}">${g(YI_ELEM_PRACTICE[e].theme.en, YI_ELEM_PRACTICE[e].theme.zh)}</td><td style="${YI_TD}">${YI_ELEM_PRACTICE[e].lines.map(l => g(l.en, l.zh)).join('; ')}</td></tr>`).join('');
+  const kindsSeen = [...new Set(y.interactions.concat(...y.months.map(m => m.interactions)).map(i => i.kind))];
+  const legend = kindsSeen.map(k => `<li><strong>${yiBil(YI_KIND[k].label.en, YI_KIND[k].label.zh)}</strong> - ${g(YI_KIND[k].mean.en, YI_KIND[k].mean.zh)}</li>`).join('');
+  const starsSeen = [...new Set(y.months.map(m => m.stars).flat().concat(y.stars))];
+  const starLegend = starsSeen.map(id => { const s = SHEN_SHA_INFO[id]; return `<li><strong>${yiBil(s.en, s.zh)}</strong> - ${g(s.mean.en, s.mean.zh)}</li>`; }).join('');
+  return `<article class="reading">
+    <span class="pill">${trPill(`${y.year} Yearly Insights`)}</span>
+    <div style="display:flex;align-items:center;gap:10px;margin:8px 0;flex-wrap:wrap">
+      <span style="display:inline-block;padding:3px 12px;border-radius:10px;font-size:15px;background:${YI_ELEM_BG[y.elem]};color:${YI_ELEM_FG[y.elem]}">${gz}</span>
+      <span style="font-size:12px"><strong>${g(`${animal} year`, `${branchCN[y.liuNian.branchIdx]}年`)}</strong> · ${yiFmtY(y.startMs)} – ${yiFmtY(y.endMs)} <span style="color:var(--muted)">(${g('from one Start of Spring to the next, GMT+8', '立春至立春，GMT+8')})</span></span>
+    </div>
+    <div class="calc-box" style="font-size:11px;line-height:1.6">${cycleLine}<br><strong>${g('The year in a line', '年读')}:</strong> ${yiPhaseHTML(y.phase)}<br>${g('Tai Sui (the Grand Duke) is in the', '太岁在')} <strong>${g(FLYING_STAR_DIR_LABEL_EN[y.guardians.taiSui], FLYING_STAR_DIR_LABEL_ZH[y.guardians.taiSui])}</strong>${g(', the Year Breaker in the', '，岁破在')} <strong>${g(FLYING_STAR_DIR_LABEL_EN[y.guardians.suiPo], FLYING_STAR_DIR_LABEL_ZH[y.guardians.suiPo])}</strong>${g(' and the Three Killings in the', '，三煞在')} <strong>${g(FLYING_STAR_DIR_LABEL_EN[y.guardians.sanSha], FLYING_STAR_DIR_LABEL_ZH[y.guardians.sanSha])}</strong> - ${g('see the Sector Guide in the Environment tab.', '详见「环境」分页的九宫方位指南。')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:3px;margin:8px 0">${strip}</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:6px">${g('Each cell is one real solar month (it opens at the Jie solar term shown, not on the 1st). Colour = the element of the month stem; the label is that element\'s verdict against your Useful God (用神). Nothing here is scored.', '每格为一个真实节气月（于所示的「节」开始，而非每月一日）。颜色为月干五行；标示为该五行相对您用神的判断。此处不打分。')}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr>${palaces.map(k => `<th style="${YI_TH}">${g(YI_PALACE[k].en, YI_PALACE[k].zh)}</th>`).join('')}</tr><tr>${pillarCells}</tr></table></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1 1 240px"><div style="font-weight:700;color:var(--success);font-size:12px">${g('What helps this year', '顺势')}</div><ul style="margin:4px 0 0;padding-left:18px;font-size:11px;line-height:1.55">${li(helps)}</ul></div>
+      <div style="flex:1 1 240px"><div style="font-weight:700;color:var(--warning);font-size:12px">${g('What to watch this year', '留意')}</div><ul style="margin:4px 0 0;padding-left:18px;font-size:11px;line-height:1.55">${li(watch)}</ul></div>
+    </div>
+    <div style="font-weight:700;font-size:12px;margin:12px 0 4px">${g('Month by month', '逐月')}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <tr><th style="${YI_TH}">${g('Month', '月份')}</th><th style="${YI_TH}">${g('Pillar · ten gods · phase', '干支·十神·长生')}</th><th style="${YI_TH}">${g('Verdict · practice', '判断·所行')}</th><th style="${YI_TH}">${g('Meets your chart', '与命盘的牵动')}</th><th style="${YI_TH}">${g('Ten-god patterns', '十神组合')}</th><th style="${YI_TH}">${g('Stars', '神煞')}</th></tr>
+      ${rows}
+    </table></div>
+    <div style="font-weight:700;font-size:12px;margin:12px 0 4px">${g('Practice by element', '各五行所行')}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">${practiceRows}</table></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1 1 240px"><div style="font-weight:700;font-size:11px">${g('How to read the interactions', '牵动说明')}</div><ul style="margin:3px 0 0;padding-left:18px;font-size:10px;line-height:1.5">${legend}</ul></div>
+      <div style="flex:1 1 240px"><div style="font-weight:700;font-size:11px">${g('Stars appearing this year', '本年出现的神煞')}</div><ul style="margin:3px 0 0;padding-left:18px;font-size:10px;line-height:1.5">${starLegend}</ul></div>
+    </div>
+    <div class="calc-box" style="font-size:10px;margin-top:8px;line-height:1.55">${g(`Method: every line is a classical rule applied to your own four pillars (${stemCN[p.bazi.yearStemIdx]}${branchCN[p.bazi.yearBranchIdx]} ${stemCN[p.bazi.monthStemIdx]}${branchCN[p.bazi.monthBranchIdx]} ${stemCN[p.bazi.dayStemIdx]}${branchCN[p.bazi.dayBranchIdx]} ${stemCN[p.bazi.hourStemIdx]}${branchCN[p.bazi.hourBranchIdx]}) - the twelve growth phases, clash/bond/punishment/harm/break/combination relations, ten-god patterns and a curated list of symbolic stars (子平真诠, 三命通会, 协纪辨方书). Favourable / Attention follows this app's own Useful God (用神) verdict, the same one used in the Detailed Reading, so the readings cannot disagree. The decade for each month is taken from the exact Jiao Yun (交运) moment worked from your real birth instant. Stars the sources define differently (德秀, 金匮, 学士, 隔角, 大耗, 元辰) are deliberately left out. Traditional symbolism for reflection - not a prediction, and never medical, legal or financial advice.`,
+      `方法：每一条都是将传统规则套用于您本人的四柱（${stemCN[p.bazi.yearStemIdx]}${branchCN[p.bazi.yearBranchIdx]} ${stemCN[p.bazi.monthStemIdx]}${branchCN[p.bazi.monthBranchIdx]} ${stemCN[p.bazi.dayStemIdx]}${branchCN[p.bazi.dayBranchIdx]} ${stemCN[p.bazi.hourStemIdx]}${branchCN[p.bazi.hourBranchIdx]}）——十二长生、冲合刑害破与三合三会、十神组合，以及精选的神煞（《子平真诠》《三命通会》《协纪辨方书》）。「顺／留意」依本应用自身的用神判断，与详细解读所用相同，故两者不会相互矛盾。各月所属大运依据由您真实出生时刻推算的交运时刻。各家定义不一的神煞（德秀、金匮、学士、隔角、大耗、元辰）刻意不采用。此为供反思的传统象征，并非预测，亦绝非医疗、法律或财务建议。`)}</div>
+  </article>`;
+}
+function generateYearlyInsightsHTML(p) {
+  if (!p?.bazi || !p.daYunPillars) return '';
+  const cy = yiLiChunYearNow();
+  return [cy, cy + 1].map(yr => generateYearlyInsightsOne(p, computeYearlyInsights(p, yr))).join('') + `<div style="margin-top:4px">${calculatedAsOfLine()}</div>`;
+}
+
+// Natal chart notes (Core tab, after the BaZi Natal Chart): symbolic stars and the twelve-growth-phase of the Day Master in
+// each pillar, plus the ten-god counts - all read straight from the person's own pillars.
+function renderNatalChartNotesHTML(p) {
+  const bazi = p.bazi, dm = bazi.dayStemIdx;
+  const stars = computeNatalStars(bazi), counts = computeTenGodCounts(bazi);
+  const pillars = [['hour', bazi.hourStemIdx, bazi.hourBranchIdx], ['day', bazi.dayStemIdx, bazi.dayBranchIdx], ['month', bazi.monthStemIdx, bazi.monthBranchIdx], ['year', bazi.yearStemIdx, bazi.yearBranchIdx]];
+  const cols = pillars.map(([k, s, b]) => {
+    const ph = computeGrowthPhase(dm, b);
+    const hidden = HIDDEN_STEMS_BY_BRANCH[b].map(h => `${stemCN[h]} ${bt(getTenGod(dm, h).en, getTenGod(dm, h).cn)}`).join('<br>');
+    return `<td style="${YI_TD}"><div style="font-size:10px;color:var(--muted)">${bt(YI_PALACE[k].en, YI_PALACE[k].zh)}<br>${bt(YI_PALACE[k].area.en, YI_PALACE[k].area.zh)}</div>
+      <div style="font-size:18px;line-height:1.25"><span style="color:${YI_ELEM_FG[computeElementIdxFromStemIdx(s)]}">${stemCN[s]}</span><span style="color:${YI_ELEM_FG[BRANCH_ELEM_IDX[b]]}">${branchCN[b]}</span></div>
+      <div>${k === 'day' ? bt('Day Master', '日主') : bt(getTenGod(dm, s).en, getTenGod(dm, s).cn)}</div>
+      <div style="color:var(--muted);margin-top:3px">${bt('hidden stems', '藏干')}<br>${hidden}</div>
+      <div style="margin-top:4px"><span style="color:var(--muted)">${bt('Day Master stands at', '日主于此')}:</span> <strong>${yiBil(ph.en, ph.zh)}</strong></div>
+      <div style="margin-top:4px">${stars[k].length ? stars[k].map(yiStarTag).join('') : `<span style="color:var(--muted)">${bt('no stars from the curated list', '精选神煞中无')}</span>`}</div></td>`;
+  }).join('');
+  const order = ['P', 'RW', 'EG', 'HO', 'DW', 'IW', 'DO', '7K', 'DR', 'IR'];
+  const total = order.reduce((n, a) => n + (counts[a] || 0), 0);
+  const cells = order.map(a => { const info = Object.values(TEN_GOD_INFO).find(t => t.abbr === a); return `<td style="${YI_TD};text-align:center"><div style="font-size:16px">${counts[a] || 0}</div><strong>${bt(info.en, info.cn)}</strong></td>`; }).join('');
+  const seen = [...new Set(Object.values(stars).flat())];
+  const legend = seen.map(id => { const s = SHEN_SHA_INFO[id]; return `<li><strong>${yiBil(s.en, s.zh)}</strong> - ${bt(s.mean.en, s.mean.zh)}</li>`; }).join('');
+  return `<article class="reading">
+    <span class="pill">${trPill('Natal Chart Notes - Stars, Growth Phases, Ten-God Counts')}</span>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${bt('Read straight from your four pillars: each pillar\'s stem and hidden stems as ten gods, where your Day Master stands in the twelve growth phases (长生) at that pillar\'s branch, and the traditional symbolic stars that sit in it.', '直接取自您的四柱：各柱天干与藏干的十神、日主在该柱地支所处的十二长生阶段，以及落在该柱的传统神煞。')}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr>${pillars.map(([k]) => `<th style="${YI_TH}">${bt(YI_PALACE[k].en, YI_PALACE[k].zh)}</th>`).join('')}</tr><tr>${cols}</tr></table></div>
+    <div style="font-weight:700;font-size:12px;margin:10px 0 4px">${bt(`The ten gods, counted - ${total} marks (3 visible stems + all hidden stems; the Day Master is not counted)`, `十神计数——共${total}项（3个明干加全部藏干；不计日主）`)}</div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr>${cells}</tr></table></div>
+    <div style="display:${seen.length ? 'block' : 'none'};margin-top:8px"><div style="font-weight:700;font-size:11px">${bt('Stars in your chart', '您命盘中的神煞')}</div><ul style="margin:3px 0 0;padding-left:18px;font-size:10px;line-height:1.5">${legend}</ul></div>
+    <div class="calc-box" style="font-size:10px;margin-top:8px;line-height:1.55">${bt('Counts are simple counts, not a weighing. Growth phases use the 火土同宫 convention (Earth stems follow Fire); the other school starts Earth at 申/卯. Stars are a curated list of standard rules (三命通会 / 渊海子平) looked up from your year branch, day branch, day stem and month branch against the other pillars; stars whose sources disagree (德秀, 金匮, 学士, 隔角, 大耗, 元辰) are not included. Traditional symbolism for reflection only.', '计数仅为简单计数，并非权衡。长生采「火土同宫」之说（土干随火）；另一流派以申／卯起土。神煞为依标准规则（《三命通会》《渊海子平》）精选之列，由年支、日支、日干与月支对照其余各柱而得；各家说法不一的神煞（德秀、金匮、学士、隔角、大耗、元辰）不予采用。仅为供反思的传统象征。')}</div>
+  </article>`;
+}
+
+// Environment tab: the nine annual sectors with Tai Sui / Sui Po / San Sha marked, for the current Li Chun year and the next.
+// The elemental remedy follows the standard weakening rule (a cautionary star's element is drained by the element it produces);
+// no other "custom" is invented. Applies to any home - it reads nothing from the person's chart, and says so.
+const YI_STAR_ELEM = { 1: 4, 2: 2, 3: 0, 4: 0, 5: 2, 6: 3, 7: 3, 8: 2, 9: 1 }; // Water Earth Wood Wood Earth Metal Metal Earth Fire
+function renderAnnualSectorGuideHTML() {
+  const cy = yiLiChunYearNow();
+  return [cy, cy + 1].map(year => {
+    const sectors = computeAnnualSectorGuide(year), gd = computeYearGuardians(computeYearPillar(year).branchIdx);
+    const order = ['SE', 'S', 'SW', 'E', 'center', 'W', 'NE', 'N', 'NW']; // traditional layout: South at the top
+    const byDir = {}; sectors.forEach(s => { byDir[s.dir] = s; });
+    const cell = (dir) => {
+      const s = byDir[dir], n = FLYING_STAR_NATURE[s.star] || {};
+      const bg = n.favourable === true ? '#e6f2e4' : (n.favourable === false ? '#f6e9cf' : '#f1f0ec');
+      const marks = [s.taiSui ? bt('Tai Sui 太岁', '太岁') : '', s.suiPo ? bt('Year Breaker 岁破', '岁破') : '', s.sanSha ? bt('Three Killings 三煞', '三煞') : ''].filter(Boolean);
+      return `<div style="border:1px solid #ccc;padding:6px;background:${bg};min-width:0;overflow:hidden;font-size:10px"><div style="color:var(--muted)">${dir === 'center' ? bt('Centre', '中宫') : bt(FLYING_STAR_DIR_LABEL_EN[dir], FLYING_STAR_DIR_LABEL_ZH[dir])}</div><div style="font-size:20px;font-weight:700;color:var(--plum)">${s.star}</div>${marks.map(m => yiTag(m, -1)).join('')}</div>`;
+    };
+    const rows = sectors.slice().sort((a, b) => ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'center'].indexOf(a.dir) - ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'center'].indexOf(b.dir)).map(s => {
+      const n = FLYING_STAR_NATURE[s.star] || {};
+      const flags = [s.taiSui ? bt('The Grand Duke (Tai Sui) sits here; traditionally left undisturbed.', '太岁所在，传统上宜静不宜动。') : '', s.suiPo ? bt('The Year Breaker (Sui Po) sits here, opposite the Grand Duke; traditionally left undisturbed.', '岁破所在，与太岁相冲，传统上宜静不宜动。') : '', s.sanSha ? bt('The Three Killings (San Sha) sit here; traditionally no renovation or ground-breaking.', '三煞所在，传统上忌装修动土。') : ''].filter(Boolean).join(' ');
+      const remedy = n.favourable === false ? bt(` Elemental remedy: the star is ${ELEM_NAMES_EN[YI_STAR_ELEM[s.star]]}; it is traditionally weakened with ${ELEM_NAMES_EN[mod(YI_STAR_ELEM[s.star] + 1, 5)]} (metal objects against earth stars, red or fire items against wood stars, water against metal stars).`, ` 五行化解：此星属${ELEM_NAMES_ZH[YI_STAR_ELEM[s.star]]}，传统上以${ELEM_NAMES_ZH[mod(YI_STAR_ELEM[s.star] + 1, 5)]}泄之（土星用金器，木星用红色或火属物，金星用水）。`) : '';
+      return `<tr><td style="${YI_TD};white-space:nowrap">${s.dir === 'center' ? bt('Centre', '中宫') : bt(FLYING_STAR_DIR_LABEL_EN[s.dir], FLYING_STAR_DIR_LABEL_ZH[s.dir])}</td><td style="${YI_TD};text-align:center"><strong>${s.star}</strong></td><td style="${YI_TD}">${flyingStarNatureLine(s.star)}${flags ? `<br><strong>${flags}</strong>` : ''}${remedy}</td></tr>`;
+    }).join('');
+    return `<article class="reading">
+      <span class="pill">${trPill(`${year} Annual Sector Guide`)}</span>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${bt(`The ${year} annual flying stars (Li Chun ${year} to Li Chun ${year + 1}) in a traditional layout - South at the top, East on the left - with the three yearly guardians marked: Tai Sui ${FLYING_STAR_DIR_LABEL_EN[gd.taiSui]}, Year Breaker ${FLYING_STAR_DIR_LABEL_EN[gd.suiPo]}, Three Killings ${FLYING_STAR_DIR_LABEL_EN[gd.sanSha]}. This is a tradition about places: it applies to any home and reads nothing from your birth chart.`, `${year}年流年飞星（立春${year}至立春${year + 1}），依传统画法——上南、左东——并标出三大年神方位：太岁${FLYING_STAR_DIR_LABEL_ZH[gd.taiSui]}、岁破${FLYING_STAR_DIR_LABEL_ZH[gd.suiPo]}、三煞${FLYING_STAR_DIR_LABEL_ZH[gd.sanSha]}。此为方位之学，适用于任何居所，与您的命盘无关。`)}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;max-width:420px;min-width:0">${order.map(cell).join('')}</div>
+      <div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse"><tr><th style="${YI_TH}">${bt('Sector', '方位')}</th><th style="${YI_TH}">${bt('Star', '星')}</th><th style="${YI_TH}">${bt('Reading', '解读')}</th></tr>${rows}</table></div>
+      <div class="calc-box" style="font-size:10px;margin-top:8px;line-height:1.55">${bt('Stars are the annual Luo Shu flight (verified against two worked examples, see the Flying Star note above); Tai Sui, Sui Po and San Sha follow 协纪辨方书 on the 8-direction grid this app uses (each branch is placed on its nearest primary direction). A traditional practice offered for reflection - not a substitute for professional advice on renovation, safety or health; urgent repairs should never wait.', '星数为流年洛书飞布（已以两个算例核对，见上方飞星说明）；太岁、岁破、三煞依《协纪辨方书》，置于本应用所用的八方位（各地支归入最近的主方位）。此为供反思的传统做法——不能取代装修、安全或健康方面的专业意见；紧急维修请勿延误。')}</div>
+    </article>`;
+  }).join('');
+}
+
 function generateDaYunAnnualDeepReadingHTML(p) {
   if (!p?.bazi || !p.daYunPillars) return '';
   const reading = computeDaYunAnnualDeepReading(p, 3);
@@ -7971,6 +8279,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       ${generateDeepAnalysisData('dayMaster', p, {title: 'Day Master (日主) Deep Analysis'})}
       ${generateDeepAnalysisData('bazi_macro', p, {title: 'BaZi Macro Structure Deep Analysis'})}
     </article>
+    ${renderNatalChartNotesHTML(p)}
     <article class="reading">
       <span class="pill" ${idAttr('boneweight')}>${trPill(`Cheng Gu Suan Ming`)}</span>
       <div class="calc-box">
@@ -8164,6 +8473,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       ${renderInfoRows([
         { label: 'Da Yun Start Year', value: `${p.daYunStartYear} (${bt('Age','年龄')} ${p.nominalStartAge})`, color: 'var(--plum)', bg: 'var(--goldsoft)' },
         { label: 'Exact Start Calculation', value: p.exactDaYunCalcStr, color: '#1565c0', bg: '#e3f2fd' },
+        { label: 'Exact Jiao Yun Moment (first cycle)', value: yiFmtY(Date.parse(p.daYunPillars[0].startISO)), color: '#1565c0', bg: '#e3f2fd' },
         { label: 'Current Age', value: `${currentAge}`, color: 'var(--success)', bg: '#e8f5e9' }
       ])}
       <div class="calc-box" style="font-size:11px">Showing Da Yun cycles from the present cycle through age 100. Calculated from your true-solar-time birth moment (longitude + timezone corrected) and the nearest governing solar term - fully dynamic per profile.</div>
@@ -8172,6 +8482,8 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
     </article>
     <h3 style="margin:16px 0 4px">${flipTitle(`Da Yun Annual Deep Reading - Current Year + Next 2 Years (大运流年深度解读)`)}</h3>
     ${generateDaYunAnnualDeepReadingHTML(p)}
+    <h3 style="margin:16px 0 4px">${flipTitle(`Yearly Insights - Current and Next Li Chun Year (流年书)`)}</h3>
+    ${generateYearlyInsightsHTML(p)}
     ${artDaYun3YearMonthly}
     ${artAstro3YearMonthly}
     ${(() => {
@@ -8773,6 +9085,7 @@ function renderSystemChart(p, prefix = 'i', compatResult = null, isBusiness = fa
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${bt('Computed automatically from today\'s date - shows which numbers currently occupy each of the 9 palaces, independent of any specific property.', '依今日日期自动推算——显示当前各宫所值之数字，不涉及任何特定建筑物。')}</div>
       ${renderFlyingStarTemporalOverlay(p)}
     </article>
+    ${renderAnnualSectorGuideHTML()}
     <article class="reading">
       <span class="pill">${trPill(`Flying Star (玄空飞星) - Optional Property Calculator`)}</span>${needsInputBadge(!!(u?.home?.constructionYear && fsDirVal))}
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${bt('A different Feng Shui school from Ba Zhai above - based on a SPECIFIC property\'s construction period and facing direction, not your personal Kua number. Enter a property\'s details to see its chart.', '与上方八宅法不同的风水流派——依据特定建筑物的建造年代与朝向而定，而非您个人的命卦。输入建筑物资料即可查看其飞星盘。')}</div>
@@ -9988,6 +10301,7 @@ const INTEG_SYSTEMS = [
   { key: 'iching', tab: 'core', en: 'I Ching', zh: '易经' },
   { key: 'xiangshu', tab: 'core', en: 'Xiang Shu', zh: '相术' },
   { key: 'dayun', tab: 'timing', en: 'Da Yun / Liu Nian', zh: '大运／流年' },
+  { key: 'yearly', tab: 'timing', en: 'Yearly Insights (Li Chun year)', zh: '流年书（立春年）' },
   { key: 'qmdj', tab: 'timing', en: 'Qi Men Dun Jia', zh: '奇门遁甲' },
   { key: 'sanshi', tab: 'timing', en: 'San Shi (Da Liu Ren / Tai Yi)', zh: '三式（大六壬／太乙）' },
   { key: 'zeri', tab: 'timing', en: 'Ze Ri', zh: '择日' },
@@ -10500,6 +10814,26 @@ function buildIntegratedSignals(p, prefix) {
     });
   });
 
+  // ---- Yearly Insights: the Li Chun year's meeting with the four pillars, ten-god patterns, stars and the growth phase ----
+  safe('yearly', () => {
+    const cy = yiLiChunYearNow(), nowMs = Date.now();
+    const palaceDom = (i) => { const k = i.tgt.split(',')[0]; return (k === 'day' && i.part === 'branch') ? 'love' : (YI_PALACE_DOMAIN[k] || 'life'); };
+    const yrs = [[cy, 'thisYear'], [cy + 1, 'nextYear']].map(([yr, dom]) => ({ yr, dom, y: computeYearlyInsights(p, yr) }));
+    yrs.forEach(({ yr, dom, y }) => {
+      const gz = stemCN[y.liuNian.stemIdx] + branchCN[y.liuNian.branchIdx], subj = { en: yr + ' ' + gz, zh: yr + '年' + gz };
+      add('yearly', dom, 0, bt(`${yr} ${gz}: your Day Master stands at ${y.phase.en} (${y.phase.zh}) in the year's branch - ${YI_PHASE_MEAN[y.phase.index].en}`, `${yr}年${gz}：日主于流年地支处「${y.phase.zh}」——${YI_PHASE_MEAN[y.phase.index].zh}`));
+      y.interactions.forEach(i => add('yearly', [dom, palaceDom(i)], INTERACTION_POLARITY[i.kind], yiInteractionSentence(i, subj)));
+      y.combos.forEach(id => add('yearly', dom, TEN_GOD_COMBO_INFO[id].pol, bt(`${yr} ${gz} stem forms ${YI_COMBO[id].en} (${YI_COMBO[id].zh}): ${YI_COMBO[id].mean.en}.`, `${yr}年${gz}天干形成${YI_COMBO[id].zh}：${YI_COMBO[id].mean.zh}。`)));
+      y.stars.forEach(id => { const st = SHEN_SHA_INFO[id]; add('yearly', dom, st.nature === 'auspicious' ? 1 : (st.nature === 'caution' ? -1 : 0), bt(`The ${yr} pillar carries ${st.en} (${st.zh}) - traditionally: ${st.mean.en}.`, `${yr}年流年柱带${st.zh}——传统上：${st.mean.zh}。`)); });
+    });
+    const cm = yrs[0].y.months.find(m => nowMs >= m.startMs && nowMs < m.endMs);
+    if (cm) {
+      const gz = stemCN[cm.stemIdx] + branchCN[cm.branchIdx], subj = { en: 'This solar month ' + gz, zh: '本节气月' + gz };
+      cm.interactions.forEach(i => add('yearly', 'now', INTERACTION_POLARITY[i.kind], yiInteractionSentence(i, subj)));
+      cm.combos.forEach(id => add('yearly', 'now', TEN_GOD_COMBO_INFO[id].pol, bt(`This solar month's stem forms ${YI_COMBO[id].en} (${YI_COMBO[id].zh}): ${YI_COMBO[id].mean.en}.`, `本节气月天干形成${YI_COMBO[id].zh}：${YI_COMBO[id].mean.zh}。`)));
+    }
+  });
+
   // ---- Qi Men Dun Jia ----
   safe('qmdj', () => {
     const q = p.qmdj, rate = QMDJ_DOOR_RATING[q.lifeDoor] || 'Neutral';
@@ -10798,7 +11132,8 @@ function renderIntegratedCoverage(integ) {
     assets: integ.hasPrefix ? bt('Only items you have set (mobile, vehicle, address) appear.', '仅显示您已设置的项目（手机、车牌、地址）。') : '',
     compat: bt('Main profile only, and only if a Life Partner / Business Partner is on file.', '仅限主档案，且需已记录生命伴侣／事业伙伴。'),
     zeri: bt('Only the real Day-Branch clash/harmony rule is used; the Ze Ri tier also includes a date-arithmetic pattern that is not a metaphysical calculation, so it is not used.', '仅采用真实的日支冲合规则；择日等级另含一项日期算术规律，并非玄学推算，因此不予采用。'),
-    daily: bt('Today\'s snapshot - it changes every day, so it appears only in the "right now" lines.', '今日快照——每天都会变化，故只出现在「当下」的说明中。')
+    daily: bt('Today\'s snapshot - it changes every day, so it appears only in the "right now" lines.', '今日快照——每天都会变化，故只出现在「当下」的说明中。'),
+    yearly: bt('Follows the Li Chun year (Feb to Feb) with real solar-term month boundaries and the exact Jiao Yun moment; its signals come from clashes, bonds, ten-god patterns, stars and the growth phase.', '依立春年（立春至立春）、真实节气月界与精确交运时刻；其信号来自冲合、十神组合、神煞与长生阶段。')
   };
   const rows = INTEG_SYSTEMS.map(sys => {
     const n = integ.signals.filter(s => s.sys === sys.key).length;

@@ -1682,6 +1682,21 @@ function computeRealBirthUTCMoment(yy, mm, dd, hh, min, tz) {
 // nearest Jie (solar term) to the TRUE SOLAR TIME birth moment (longitude/timezone corrected,
 // consistent with the BaZi pillar engine), per the JiaZi-derived forward/backward direction.
 // Fully dynamic per-profile: every input (date, time, gender, longitude, timezone) changes the result.
+// Exact Jiao Yun (交运) instant from the REAL birth instant (realBirthMomentUTC) against the real astronomical Jie moments, with the
+// same 3-days-per-year / 1-hour-of-gap-per-5-days conversion used above. calculateExactDaYun above deliberately works on
+// true-solar-time relabelled as UTC (a documented app convention that also drives the pillars and the Da Yun table's ages); the
+// yearly reading needs the decade to change at a real instant relative to the real month boundaries, so it uses this instead.
+// Unrounded: the start is the exact moment, not the whole-year age shown in the Da Yun table.
+function computeRealJiaoYunStart(realBirthUTC, forward) {
+  const refY = realBirthUTC.getUTCFullYear(), refM = realBirthUTC.getUTCMonth() + 1;
+  const cands = [jieMoment(refY, refM - 1), jieMoment(refY, refM), jieMoment(refY, refM + 1)].sort((a, b) => a - b);
+  const target = forward ? cands.find(c => c > realBirthUTC) : cands.slice().reverse().find(c => c <= realBirthUTC);
+  const dLife = (Math.abs(target.getTime() - realBirthUTC.getTime()) / 3600000) * 5; // life days
+  const y = Math.floor(dLife / 360), rem = dLife % 360, mo = Math.floor(rem / 30), d = Math.round(rem % 30);
+  const start = new Date(realBirthUTC.getTime());
+  start.setUTCFullYear(start.getUTCFullYear() + y); start.setUTCMonth(start.getUTCMonth() + mo); start.setUTCDate(start.getUTCDate() + d);
+  return start;
+}
 function calculateExactDaYun(yy, mm, dd, hh, min, isMale, isYangYear, lon = 103.8, tz = 8) {
     const forward = (isYangYear && isMale) || (!isYangYear && !isMale);
 
@@ -1947,6 +1962,7 @@ function getProfileData(customProfile = null) {
   // counted from the start age), so the current cycle through the age-100 cycle are always available.
   let daYunPillars = [];
   const forward = daYunCalc.forward;
+  const realJiaoYunStart = computeRealJiaoYunStart(bazi.realBirthMomentUTC, forward);
   const startAgeClamped = Math.max(0, nominalStartAge);
   const cycleCount = Math.max(1, Math.ceil((100 - startAgeClamped) / 10) + 1);
   for (let i = 0; i < cycleCount; i++) {
@@ -1954,6 +1970,8 @@ function getProfileData(customProfile = null) {
       const age = startAgeClamped + (i * 10);
       if (age > 100) break;
       daYunPillars.push({ age, stemIdx: mod(bazi.monthStemIdx + offset, 10), branchIdx: mod(bazi.monthBranchIdx + offset, 12), calendarYearStart: daYunStartYear + (i * 10),
+        // exact Jiao Yun (交运) instant of this cycle (see computeRealJiaoYunStart): the first cycle's start plus 10 years per cycle
+        startISO: (() => { const d = new Date(realJiaoYunStart.getTime()); d.setUTCFullYear(d.getUTCFullYear() + i * 10); return d.toISOString(); })(),
         rating: rateDaYunCycle(mod(bazi.monthStemIdx + offset, 10), mod(bazi.monthBranchIdx + offset, 12), bazi.dayStemIdx, bazi.dayBranchIdx) });
   }
 
@@ -3122,6 +3140,349 @@ function computeDaYunAnnualDeepReading(p, yearsCount) {
     });
   }
   return { years, usefulGod: analysis.usefulGod, dmStrength: analysis.dmStrength };
+}
+
+// ============================================================
+// YEARLY INSIGHTS ENGINE (reported: "attached sample reading from another provider ... incorporate the missing items
+// into the app by reading the profile and not making things up")
+// ============================================================
+// Everything in this block is a classical, table-driven Zi Ping rule applied to the person's OWN four pillars - no
+// number is invented and nothing is read from the sample reading itself (the sample was only used afterwards as a
+// cross-check, see tests/test_yearly_insights.js). Sources, as cited in each table below: 子平真诠 (the twelve growth
+// phases, the interaction types, the ten-god patterns), 三命通会 / 渊海子平 (the symbolic stars) and 协纪辨方书 (太岁,
+// 岁破, 三煞). Where schools differ the choice made here is named in a comment, never picked silently.
+// Returns raw indices only; wording is composed in app.js where bt() exists.
+
+// ---- 十二长生 (the twelve growth phases) ----
+// Convention: 火土同宫 (Earth stems 戊/己 follow Fire's 寅/酉 cycle) - the most widely taught school; the other school
+// (水土同宫) starts Earth at 申/卯. Yang stems run the phases forward through the branches, yin stems backward.
+const GROWTH_PHASE_LABELS = [
+  { en: 'Growth', zh: '长生' }, { en: 'Bathing', zh: '沐浴' }, { en: 'Capping', zh: '冠带' }, { en: 'Office', zh: '临官' },
+  { en: 'Prime', zh: '帝旺' }, { en: 'Decline', zh: '衰' }, { en: 'Illness', zh: '病' }, { en: 'Death', zh: '死' },
+  { en: 'Tomb', zh: '墓' }, { en: 'Extinction', zh: '绝' }, { en: 'Conception', zh: '胎' }, { en: 'Nurture', zh: '养' }
+];
+// Branch where each stem's 长生 falls: 甲亥 乙午 丙寅 丁酉 戊寅 己酉 庚巳 辛子 壬申 癸卯.
+const GROWTH_START_BRANCH_BY_STEM = [11, 6, 2, 9, 2, 9, 5, 0, 8, 3];
+function computeGrowthPhase(stemIdx, branchIdx) {
+  const start = GROWTH_START_BRANCH_BY_STEM[stemIdx];
+  const k = (stemIdx % 2 === 0) ? mod(branchIdx - start, 12) : mod(start - branchIdx, 12);
+  return { index: k, en: GROWTH_PHASE_LABELS[k].en, zh: GROWTH_PHASE_LABELS[k].zh };
+}
+
+// ---- 刑冲合害破 and the stem relations ----
+const STEM_BOND = { 0: 5, 5: 0, 1: 6, 6: 1, 2: 7, 7: 2, 3: 8, 8: 3, 4: 9, 9: 4 };        // 甲己 乙庚 丙辛 丁壬 戊癸
+const STEM_CLASH_PAIR = { 0: 6, 6: 0, 1: 7, 7: 1, 2: 8, 8: 2, 3: 9, 9: 3 };              // 甲庚 乙辛 丙壬 丁癸
+const BRANCH_BOND_ELEM = { '0-1': 2, '2-11': 0, '3-10': 1, '4-9': 3, '5-8': 4, '6-7': null }; // 子丑土 寅亥木 卯戌火 辰酉金 巳申水 午未(school-dependent)
+const BRANCH_HARM = { 0: 7, 7: 0, 1: 6, 6: 1, 2: 5, 5: 2, 3: 4, 4: 3, 8: 11, 11: 8, 9: 10, 10: 9 };   // 子未 丑午 寅巳 卯辰 申亥 酉戌
+const BRANCH_BREAK = { 0: 9, 9: 0, 6: 3, 3: 6, 8: 5, 5: 8, 2: 11, 11: 2, 4: 1, 1: 4, 10: 7, 7: 10 }; // 子酉 午卯 申巳 寅亥 辰丑 戌未
+const PUNISH_GROUPS = [[2, 5, 8], [1, 10, 7], [0, 3]];                                       // 寅巳申 丑戌未 子卯
+const SELF_PUNISH_BRANCHES = [4, 6, 9, 11];                                                  // 辰午酉亥
+// Trine groups as [生, 旺, 墓, element]: 申子辰水 亥卯未木 寅午戌火 巳酉丑金. Seasonal groups: 寅卯辰木 巳午未火 申酉戌金 亥子丑水.
+const TRINE_GROUPS = [[8, 0, 4, 4], [11, 3, 7, 0], [2, 6, 10, 1], [5, 9, 1, 3]];
+const SEASON_GROUPS = [[2, 3, 4, 0], [5, 6, 7, 1], [8, 9, 10, 3], [11, 0, 1, 4]];
+const STORE_ELEMENT = { 4: 4, 10: 1, 1: 3, 7: 0 };                                          // 辰(水库) 戌(火库) 丑(金库) 未(木库)
+// 天克地冲 = the stems overcome each other (same polarity) AND the branches clash.
+function stemOvercomeSamePolarity(a, b) {
+  if (a % 2 !== b % 2) return false;
+  const ea = Math.floor(a / 2), eb = Math.floor(b / 2);
+  return mod(ea + 2, 5) === eb || mod(eb + 2, 5) === ea;
+}
+function branchBondElem(a, b) { const k = a < b ? `${a}-${b}` : `${b}-${a}`; return Object.prototype.hasOwnProperty.call(BRANCH_BOND_ELEM, k) ? { bond: true, elem: BRANCH_BOND_ELEM[k] } : null; }
+// A pair that is already a clash (寅申, 丑未) is reported as a clash only - not additionally as a punishment - which is how the
+// partial (two-of-three) punishments are normally read.
+function branchPunishKind(a, b) {
+  if (a === b) return SELF_PUNISH_BRANCHES.includes(a) ? 'self' : null;
+  if (SIX_CLASH[a] === b) return null;
+  for (let i = 0; i < PUNISH_GROUPS.length; i++) if (PUNISH_GROUPS[i].includes(a) && PUNISH_GROUPS[i].includes(b)) return ['ungrateful', 'bully', 'rude'][i];
+  return null;
+}
+// flow = { stemIdx, branchIdx }; natal = [{ key, stemIdx, branchIdx }]; flowTargets = [{ key, stemIdx, branchIdx }] (other moving
+// periods, e.g. the decade or the year, compared more lightly - only repeat / clash / double clash, as is customary).
+// Returns [{ kind, tgt, part, sub?, elem?, with? }].
+function computeFlowInteractions(flow, natal, flowTargets) {
+  const out = [];
+  const add = (o) => out.push(o);
+  natal.forEach(t => {
+    if (STEM_BOND[flow.stemIdx] === t.stemIdx) add({ kind: 'stem-bond', tgt: t.key, part: 'stem' });
+    if (STEM_CLASH_PAIR[flow.stemIdx] === t.stemIdx) add({ kind: 'stem-clash', tgt: t.key, part: 'stem' });
+  });
+  natal.forEach(t => {
+    const fb = flow.branchIdx, nb = t.branchIdx;
+    if (fb === nb) add({ kind: 'repeat', tgt: t.key, part: 'branch' });
+    if (SIX_CLASH[fb] === nb) {
+      add({ kind: 'clash', tgt: t.key, part: 'branch' });
+      if (STORE_ELEMENT[nb] !== undefined) add({ kind: 'store-open', tgt: t.key, part: 'branch', elem: STORE_ELEMENT[nb] });
+    }
+    const bond = branchBondElem(fb, nb);
+    if (bond) add({ kind: 'branch-bond', tgt: t.key, part: 'branch', elem: bond.elem });
+    const pk = branchPunishKind(fb, nb);
+    if (pk === 'self') add({ kind: 'self-punish', tgt: t.key, part: 'branch' });
+    else if (pk) add({ kind: 'punish', tgt: t.key, part: 'branch', sub: pk });
+    if (BRANCH_HARM[fb] === nb) add({ kind: 'harm', tgt: t.key, part: 'branch' });
+    if (BRANCH_BREAK[fb] === nb) add({ kind: 'break', tgt: t.key, part: 'branch' });
+    // pillar-level
+    if (flow.stemIdx === t.stemIdx && fb === nb) add({ kind: 'repeat-pillar', tgt: t.key, part: 'pillar' });
+    const overcome = stemOvercomeSamePolarity(flow.stemIdx, t.stemIdx);
+    if (overcome && SIX_CLASH[fb] === nb) add({ kind: 'double-clash', tgt: t.key, part: 'pillar' });
+    else if (overcome && fb === nb) add({ kind: 'same-branch-stem-clash', tgt: t.key, part: 'pillar' });
+    else if (flow.stemIdx === t.stemIdx && SIX_CLASH[fb] === nb) add({ kind: 'same-stem-branch-clash', tgt: t.key, part: 'pillar' });
+  });
+  // three-way combinations: the flowing branch plus branches already present in the natal chart
+  const keysWith = (b) => natal.filter(t => t.branchIdx === b).map(t => t.key);
+  TRINE_GROUPS.forEach(g => {
+    if (!g.slice(0, 3).includes(flow.branchIdx)) return;
+    const others = g.slice(0, 3).filter(b => b !== flow.branchIdx);
+    if (others.every(b => keysWith(b).length)) {
+      add({ kind: 'trine', tgt: others.map(keysWith).flat().filter((k, i, a) => a.indexOf(k) === i).join(','), part: 'branch', elem: g[3] });
+    } else {
+      // 半合: the 旺 branch together with its 生 or 墓 partner
+      const wang = g[1];
+      const partners = flow.branchIdx === wang ? [g[0], g[2]] : (others.includes(wang) ? [wang] : []);
+      partners.forEach(b => { const ks = keysWith(b); if (ks.length) add({ kind: 'half-trine', tgt: ks.join(','), part: 'branch', elem: g[3] }); });
+    }
+  });
+  SEASON_GROUPS.forEach(g => {
+    if (!g.slice(0, 3).includes(flow.branchIdx)) return;
+    const others = g.slice(0, 3).filter(b => b !== flow.branchIdx);
+    if (others.every(b => keysWith(b).length)) add({ kind: 'season', tgt: others.map(keysWith).flat().filter((k, i, a) => a.indexOf(k) === i).join(','), part: 'branch', elem: g[3] });
+  });
+  (flowTargets || []).forEach(t => {
+    if (flow.stemIdx === t.stemIdx && flow.branchIdx === t.branchIdx) add({ kind: 'repeat-pillar', tgt: t.key, part: 'pillar' });
+    const overcome = stemOvercomeSamePolarity(flow.stemIdx, t.stemIdx);
+    if (overcome && SIX_CLASH[flow.branchIdx] === t.branchIdx) add({ kind: 'double-clash', tgt: t.key, part: 'pillar' });
+    if (SIX_CLASH[flow.branchIdx] === t.branchIdx) add({ kind: 'clash', tgt: t.key, part: 'branch' });
+  });
+  return out;
+}
+// Polarity of an interaction kind in the classical reading: bonds/combinations are supportive, clashes/punishments/
+// harms/breaks are cautionary, repeats are neutral ("a recurring theme").
+const INTERACTION_POLARITY = { 'stem-bond': 1, 'branch-bond': 1, trine: 1, 'half-trine': 1, season: 1, 'stem-clash': -1, clash: -1, punish: -1, 'self-punish': -1, harm: -1, break: -1, 'double-clash': -1, 'same-branch-stem-clash': -1, 'same-stem-branch-clash': -1, 'store-open': 0, repeat: 0, 'repeat-pillar': 0 };
+
+// ---- ten-god patterns triggered by the flowing stem (子平真诠) ----
+// A pattern is reported when the flowing stem's ten god is one of its components AND the natal chart (visible stems plus
+// every hidden stem) supplies the other. Wealth stems trigger 比劫夺财 / 财破印; peers/rob-wealth stems do not.
+function computeTenGodCombos(dmStemIdx, flowStemIdx, bazi) {
+  const natalGods = new Set();
+  [bazi.yearStemIdx, bazi.monthStemIdx, bazi.hourStemIdx].forEach(s => natalGods.add(getTenGod(dmStemIdx, s).abbr));
+  [bazi.yearBranchIdx, bazi.monthBranchIdx, bazi.dayBranchIdx, bazi.hourBranchIdx].forEach(b => HIDDEN_STEMS_BY_BRANCH[b].forEach(s => natalGods.add(getTenGod(dmStemIdx, s).abbr)));
+  const g = getTenGod(dmStemIdx, flowStemIdx).abbr;
+  const has = (...a) => a.some(x => natalGods.has(x));
+  const out = [];
+  if ((g === 'EG' && has('IR')) || (g === 'IR' && has('EG'))) out.push('xiaoshen');
+  if ((g === 'DO' && has('DR', 'IR')) || ((g === 'DR' || g === 'IR') && has('DO'))) out.push('guanyin');
+  if ((g === '7K' && has('DR', 'IR')) || ((g === 'DR' || g === 'IR') && has('7K'))) out.push('shayin');
+  if ((g === 'HO' && has('DR', 'IR')) || ((g === 'DR' || g === 'IR') && has('HO'))) out.push('shangguanpeiyin');
+  if ((g === 'DO' && has('7K')) || (g === '7K' && has('DO'))) out.push('guansha');
+  if ((g === 'DW' || g === 'IW') && has('P', 'RW')) out.push('bijie');
+  if ((g === 'DW' || g === 'IW') && has('DR', 'IR')) out.push('caipoyin');
+  return out;
+}
+const TEN_GOD_COMBO_INFO = {
+  xiaoshen: { zh: '枭神夺食', en: 'Indirect Seal blocks Eating God', pol: -1 },
+  guanyin: { zh: '官印相生', en: 'Direct Officer feeds the Seal', pol: 1 },
+  shayin: { zh: '杀印相生', en: 'Seven Killings feed the Seal', pol: 1 },
+  shangguanpeiyin: { zh: '伤官配印', en: 'Hurting Officer paired with the Seal', pol: 1 },
+  guansha: { zh: '官杀混杂', en: 'Officer and Killings mixed', pol: -1 },
+  bijie: { zh: '比劫夺财', en: 'Peers and Rob Wealth contest Wealth', pol: -1 },
+  caipoyin: { zh: '财破印', en: 'Wealth damages the Seal', pol: -1 }
+};
+
+// ---- 神煞 (symbolic stars) - a curated set whose lookup rules are standard in 三命通会 / 渊海子平 ----
+// Anchors: group stars (驿马 桃花 华盖 将星 劫煞 亡神 灾煞) are looked up from the YEAR branch and the DAY branch against the
+// OTHER branches (a star is a relation to another pillar, so the anchoring pillar itself is skipped on the natal chart);
+// 孤辰/寡宿/红鸾/天喜 from the year branch; 天乙/太极/文昌/福星 and 禄 / 羊刃 / 飞刃 / 学堂 / 金舆 / 红艳
+// from the day stem; 月德 / 天德 from the month branch. (Some schools also look 天乙/太极/文昌/福星 up from the year stem; this app
+// uses the day stem only, the stricter and more widely used anchor.) Some stars have more than one table in circulation (红艳 especially);
+// the most commonly printed table is used. Deliberately NOT included: 德秀, 金匮, 学士, 隔角, 大耗 - their rules differ
+// between sources too much to state one defensibly.
+const SHEN_SHA_INFO = {
+  tianyi: { zh: '天乙贵人', en: 'Noble Helper', nature: 'auspicious', mean: { en: 'a helpful senior or benefactor tends to appear when you need one', zh: '需要时常有长辈或贵人相助' } },
+  taiji: { zh: '太极贵人', en: 'Insight Star', nature: 'auspicious', mean: { en: 'a bent for inquiry, study and the inner life', zh: '偏好探究、学问与内在世界' } },
+  wenchang: { zh: '文昌', en: 'Scholar Star', nature: 'auspicious', mean: { en: 'study, writing, exams and clear thinking', zh: '利学业、文书、考试与清明思路' } },
+  fuxing: { zh: '福星贵人', en: 'Fortune Star', nature: 'auspicious', mean: { en: 'ease and comfort - blessings that come with less strain', zh: '安逸舒适，福分来得不费力' } },
+  lushen: { zh: '禄神', en: 'Prosperity Root', nature: 'auspicious', mean: { en: 'livelihood steadied by your own effort', zh: '凭自身努力而生计安稳' } },
+  xuetang: { zh: '学堂', en: 'Study Hall', nature: 'auspicious', mean: { en: 'aptitude for learning and training', zh: '利学习与进修' } },
+  jinyu: { zh: '金舆', en: 'Golden Carriage', nature: 'auspicious', mean: { en: 'comfort, vehicles and support from a partner', zh: '安适、车驾与伴侣助力' } },
+  yuede: { zh: '月德贵人', en: "Moon's Virtue", nature: 'auspicious', mean: { en: 'protection - difficulties tend to soften', zh: '有护佑，难事易转轻' } },
+  tiande: { zh: '天德', en: "Heaven's Virtue", nature: 'auspicious', mean: { en: 'protection - difficulties tend to soften', zh: '有护佑，难事易转轻' } },
+  jiangxing: { zh: '将星', en: 'General Star', nature: 'auspicious', mean: { en: 'leadership and being given authority', zh: '领导力，易被托以权责' } },
+  hongluan: { zh: '红鸾', en: 'Red Phoenix', nature: 'auspicious', mean: { en: 'romance and the joy of partnership', zh: '感情与姻缘喜事' } },
+  tianxi: { zh: '天喜', en: 'Heavenly Joy', nature: 'auspicious', mean: { en: 'celebrations and happy occasions', zh: '喜庆之事' } },
+  yima: { zh: '驿马', en: 'Travelling Horse', nature: 'neutral', mean: { en: 'movement - travel, relocation, a change of scene', zh: '主动——出行、迁移、转换环境' } },
+  taohua: { zh: '桃花', en: 'Peach Blossom', nature: 'neutral', mean: { en: 'social appeal and romance - charm that can also complicate', zh: '人缘与恋情——有魅力，亦可能添纠葛' } },
+  huagai: { zh: '华盖', en: 'Canopy Star', nature: 'neutral', mean: { en: 'solitude, study, art and the spiritual - set slightly apart', zh: '孤高、学问、艺术与灵性——与人略有距离' } },
+  hongyan: { zh: '红艳', en: 'Allure Star', nature: 'neutral', mean: { en: 'magnetism and attraction', zh: '魅力与吸引力' } },
+  yangren: { zh: '羊刃', en: 'The Blade', nature: 'caution', mean: { en: 'force and sharpness - courage, but rashness and injury risk when the Day Master is already strong', zh: '锋芒与冲劲——有胆识，日主偏强时防冲动与受伤' } },
+  feiren: { zh: '飞刃', en: 'Flying Blade', nature: 'caution', mean: { en: 'a sudden sharp edge - care with conflict and accidents', zh: '突发的锋芒——留意冲突与意外' } },
+  jiesha: { zh: '劫煞', en: 'Seizing Star', nature: 'caution', mean: { en: 'being taken advantage of or money slipping away', zh: '易被占便宜或钱财外流' } },
+  wangshen: { zh: '亡神', en: 'Hidden Loss', nature: 'caution', mean: { en: 'loss through carelessness or things left unwatched', zh: '因疏忽或未留意而生损耗' } },
+  zaisha: { zh: '灾煞', en: 'Storm Star', nature: 'caution', mean: { en: 'sudden mishaps - take extra care of health and safety', zh: '突发状况——多留意健康与安全' } },
+  guchen: { zh: '孤辰', en: 'Solitude Star', nature: 'caution', mean: { en: 'distance and self-reliance in relationships', zh: '感情中偏疏离、重自立' } },
+  guasu: { zh: '寡宿', en: 'Stillness Star', nature: 'caution', mean: { en: 'distance and self-reliance in relationships', zh: '感情中偏疏离、重自立' } },
+  yinyangcuocuo: { zh: '阴阳差错', en: 'Crossed Signals', nature: 'caution', mean: { en: 'friction in intimate and family arrangements - say things plainly', zh: '亲密与家庭关系易有误会——话要说明白' } }
+};
+const SS_TIANYI = { 0: [1, 7], 4: [1, 7], 6: [1, 7], 1: [0, 8], 5: [0, 8], 2: [11, 9], 3: [11, 9], 8: [5, 3], 9: [5, 3], 7: [6, 2] };
+const SS_TAIJI = { 0: [0, 6], 1: [0, 6], 2: [3, 9], 3: [3, 9], 4: [4, 10, 1, 7], 5: [4, 10, 1, 7], 6: [2, 11], 7: [2, 11], 8: [5, 8], 9: [5, 8] };
+const SS_WENCHANG = { 0: 5, 1: 6, 2: 8, 3: 9, 4: 8, 5: 9, 6: 11, 7: 0, 8: 2, 9: 3 };
+const SS_FUXING = { 0: [2, 0], 2: [2, 0], 1: [3, 1], 9: [3, 1], 4: [8], 5: [7], 3: [11], 6: [6], 7: [5], 8: [4] };
+const SS_LU = { 0: 2, 1: 3, 2: 5, 3: 6, 4: 5, 5: 6, 6: 8, 7: 9, 8: 11, 9: 0 };
+const SS_YANGREN = { 0: 3, 2: 6, 4: 6, 6: 9, 8: 0 };
+const SS_XUETANG = { 0: 11, 1: 6, 2: 2, 3: 9, 4: 2, 5: 9, 6: 5, 7: 0, 8: 8, 9: 3 };
+const SS_JINYU = { 0: 4, 1: 5, 2: 7, 3: 8, 4: 7, 5: 8, 6: 10, 7: 11, 8: 1, 9: 2 };
+const SS_HONGYAN = { 0: 6, 1: 6, 2: 2, 3: 7, 4: 4, 5: 4, 6: 10, 7: 9, 8: 0, 9: 8 };
+// group stars, indexed by TRINE_GROUPS order (申子辰, 亥卯未, 寅午戌, 巳酉丑)
+const SS_GROUP = {
+  yima: [2, 5, 8, 11], taohua: [9, 0, 3, 6], huagai: [4, 7, 10, 1], jiangxing: [0, 3, 6, 9],
+  jiesha: [5, 8, 11, 2], wangshen: [11, 2, 5, 8], zaisha: [6, 9, 0, 3]
+};
+const SS_YUEDE_STEM_BY_TRINE = [8, 0, 2, 6]; // 申子辰壬 亥卯未甲 寅午戌丙 巳酉丑庚
+const SS_TIANDE_BY_MONTH = { 2: ['s', 3], 3: ['b', 8], 4: ['s', 8], 5: ['s', 7], 6: ['b', 11], 7: ['s', 0], 8: ['s', 9], 9: ['b', 2], 10: ['s', 2], 11: ['s', 1], 0: ['b', 5], 1: ['s', 6] };
+const SS_YINYANG_DAY_PILLARS = ['2-0', '3-1', '4-2', '7-3', '8-4', '9-5', '2-6', '3-7', '4-8', '7-9', '8-10', '9-11']; // stem-branch: 丙子 丁丑 戊寅 辛卯 壬辰 癸巳 丙午 丁未 戊申 辛酉 壬戌 癸亥
+function trineGroupIndex(b) { return TRINE_GROUPS.findIndex(g => g.slice(0, 3).includes(b)); }
+function seasonGroupIndexOf(b) { return [[11, 0, 1], [2, 3, 4], [5, 6, 7], [8, 9, 10]].findIndex(g => g.includes(b)); }
+// ctx = { dayStemIdx, yearStemIdx, yearBranchIdx, dayBranchIdx, monthBranchIdx }; `skip` = 'year' | 'day' | null names the
+// anchoring pillar that must not look itself up.
+function computeStarsForPillar(ctx, stemIdx, branchIdx, skip, isNatalDay) {
+  const out = [];
+  const push = (id) => { if (!out.includes(id)) out.push(id); };
+  [ctx.dayStemIdx].forEach(a => {
+    if ((SS_TIANYI[a] || []).includes(branchIdx)) push('tianyi');
+    if ((SS_TAIJI[a] || []).includes(branchIdx)) push('taiji');
+    if (SS_WENCHANG[a] === branchIdx) push('wenchang');
+    if ((SS_FUXING[a] || []).includes(branchIdx)) push('fuxing');
+  });
+  const d = ctx.dayStemIdx;
+  if (SS_LU[d] === branchIdx) push('lushen');
+  if (SS_YANGREN[d] !== undefined) { if (SS_YANGREN[d] === branchIdx) push('yangren'); if (SIX_CLASH[SS_YANGREN[d]] === branchIdx) push('feiren'); }
+  if (SS_XUETANG[d] === branchIdx) push('xuetang');
+  if (SS_JINYU[d] === branchIdx) push('jinyu');
+  if (SS_HONGYAN[d] === branchIdx) push('hongyan');
+  const anchors = [];
+  if (skip !== 'year') anchors.push(ctx.yearBranchIdx);
+  if (skip !== 'day') anchors.push(ctx.dayBranchIdx);
+  anchors.forEach(ab => { const gi = trineGroupIndex(ab); Object.keys(SS_GROUP).forEach(id => { if (SS_GROUP[id][gi] === branchIdx) push(id); }); });
+  if (skip !== 'year') {
+    const gi = seasonGroupIndexOf(ctx.yearBranchIdx);
+    if ([2, 5, 8, 11][gi] === branchIdx) push('guchen');
+    if ([10, 1, 4, 7][gi] === branchIdx) push('guasu');
+    const hl = mod(3 - ctx.yearBranchIdx, 12);
+    if (hl === branchIdx) push('hongluan');
+    if (mod(hl + 6, 12) === branchIdx) push('tianxi');
+  }
+  // 月德 / 天德 are looked up from the natal month branch against stems (月德) or stem-or-branch (天德)
+  if (SS_YUEDE_STEM_BY_TRINE[trineGroupIndex(ctx.monthBranchIdx)] === stemIdx) push('yuede');
+  const td = SS_TIANDE_BY_MONTH[ctx.monthBranchIdx];
+  if (td && ((td[0] === 's' && td[1] === stemIdx) || (td[0] === 'b' && td[1] === branchIdx))) push('tiande');
+  if (isNatalDay && SS_YINYANG_DAY_PILLARS.includes(`${stemIdx}-${branchIdx}`)) push('yinyangcuocuo');
+  return out;
+}
+function computeNatalStars(bazi) {
+  const ctx = { dayStemIdx: bazi.dayStemIdx, yearStemIdx: bazi.yearStemIdx, yearBranchIdx: bazi.yearBranchIdx, dayBranchIdx: bazi.dayBranchIdx, monthBranchIdx: bazi.monthBranchIdx };
+  return {
+    year: computeStarsForPillar(ctx, bazi.yearStemIdx, bazi.yearBranchIdx, 'year', false),
+    month: computeStarsForPillar(ctx, bazi.monthStemIdx, bazi.monthBranchIdx, null, false),
+    day: computeStarsForPillar(ctx, bazi.dayStemIdx, bazi.dayBranchIdx, 'day', true),
+    hour: computeStarsForPillar(ctx, bazi.hourStemIdx, bazi.hourBranchIdx, null, false)
+  };
+}
+
+// ---- 太岁 / 岁破 / 三煞 (协纪辨方书) ----
+// Compass sector of each branch on the 8-direction grid this app uses: 子N 丑NE 寅NE 卯E 辰SE 巳SE 午S 未SW 申SW 酉W 戌NW 亥NW.
+const BRANCH_COMPASS = ['N', 'NE', 'NE', 'E', 'SE', 'SE', 'S', 'SW', 'SW', 'W', 'NW', 'NW'];
+// 三煞 sits in the three branches of the season the year's trine group does NOT start in: 申子辰年 -> 巳午未 (S); 亥卯未年 ->
+// 申酉戌 (W); 寅午戌年 -> 亥子丑 (N); 巳酉丑年 -> 寅卯辰 (E).
+const SAN_SHA_COMPASS = ['S', 'W', 'N', 'E'];
+function computeYearGuardians(yearBranchIdx) {
+  return { taiSui: BRANCH_COMPASS[yearBranchIdx], suiPo: BRANCH_COMPASS[SIX_CLASH[yearBranchIdx]], sanSha: SAN_SHA_COMPASS[trineGroupIndex(yearBranchIdx)] };
+}
+// The nine sectors of the annual flying-star chart with the three guardians marked.
+function computeAnnualSectorGuide(year) {
+  const chart = computeAnnualFlyingStar(year);
+  const g = computeYearGuardians(computeYearPillar(year).branchIdx);
+  return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'center'].map(dir => ({ dir, star: chart[dir], taiSui: dir === g.taiSui, suiPo: dir === g.suiPo, sanSha: dir === g.sanSha }));
+}
+
+// ---- balancing element (扶抑: restrain or drain an excess element using a favourable one) ----
+// For an element that is UNFAVOURABLE to this chart: the favourable element that overcomes it, else the favourable element it
+// produces; null if neither is favourable (then simply keep steady).
+function computeBalancingElement(elemIdx, favourable) {
+  const controller = mod(elemIdx - 2, 5), produced = mod(elemIdx + 1, 5);
+  if (favourable.includes(controller)) return { elem: controller, how: 'restrain' };
+  if (favourable.includes(produced)) return { elem: produced, how: 'drain' };
+  return null;
+}
+
+// ---- ten-god counts: the 15 marks (3 visible stems + 12 hidden stems; the Day Master is not counted) ----
+function computeTenGodCounts(bazi) {
+  const dm = bazi.dayStemIdx, counts = {};
+  const bump = (s) => { const g = getTenGod(dm, s); counts[g.abbr] = (counts[g.abbr] || 0) + 1; };
+  [bazi.yearStemIdx, bazi.monthStemIdx, bazi.hourStemIdx].forEach(bump);
+  [bazi.yearBranchIdx, bazi.monthBranchIdx, bazi.dayBranchIdx, bazi.hourBranchIdx].forEach(b => HIDDEN_STEMS_BY_BRANCH[b].forEach(bump));
+  return counts;
+}
+
+// ---- the whole yearly reading for one Li Chun year ----
+// `year` = the Li Chun year (2027 runs from Li Chun 2027 to Li Chun 2028). Months follow the real solar-term (Jie) boundaries
+// from this file's own astronomical jieMoment, NOT Gregorian months. The decade for a month is the one covering the month's
+// midpoint using the exact Jiao Yun date (p.daYunPillars[i].startISO), so a month that straddles a cycle change says so.
+function computeYearlyInsights(p, year) {
+  const bazi = p.bazi, dm = bazi.dayStemIdx;
+  const analysis = computeDetailedReadingAnalysis(p);
+  const fav = analysis.usefulGod.favourable;
+  const natal = [
+    { key: 'year', stemIdx: bazi.yearStemIdx, branchIdx: bazi.yearBranchIdx }, { key: 'month', stemIdx: bazi.monthStemIdx, branchIdx: bazi.monthBranchIdx },
+    { key: 'day', stemIdx: bazi.dayStemIdx, branchIdx: bazi.dayBranchIdx }, { key: 'hour', stemIdx: bazi.hourStemIdx, branchIdx: bazi.hourBranchIdx }
+  ];
+  const ctx = { dayStemIdx: dm, yearStemIdx: bazi.yearStemIdx, yearBranchIdx: bazi.yearBranchIdx, dayBranchIdx: bazi.dayBranchIdx, monthBranchIdx: bazi.monthBranchIdx };
+  const cycles = (p.daYunPillars || []).map(c => ({ ...c, startMs: c.startISO ? Date.parse(c.startISO) : Date.UTC(c.calendarYearStart, 0, 1) }));
+  const cycleAtMs = (ms) => { let cur = null; cycles.forEach(c => { if (c.startMs <= ms) cur = c; }); return cur; };
+  const liuNian = computeYearPillar(year);
+  const yearStartMs = jieMoment(year, 2).getTime(), yearEndMs = jieMoment(year + 1, 2).getTime();
+  // the cycle covering most of the Li Chun year (the convention used to call a year "year 1 of 10" of its cycle)
+  const cycleMajority = (() => { let best = null, bestLen = -1; cycles.forEach((c, i) => { const s = Math.max(c.startMs, yearStartMs), e = Math.min(i + 1 < cycles.length ? cycles[i + 1].startMs : Infinity, yearEndMs); if (e - s > bestLen) { bestLen = e - s; best = c; } }); return best; })();
+  const elemOfStem = (s) => computeElementIdxFromStemIdx(s);
+  const flowTarget = (key, c) => c ? { key, stemIdx: c.stemIdx, branchIdx: c.branchIdx } : null;
+  const yearFlow = { stemIdx: liuNian.stemIdx, branchIdx: liuNian.branchIdx };
+  const yearTargets = [flowTarget('cycle', cycleMajority)].filter(Boolean);
+  const yearInteractions = computeFlowInteractions(yearFlow, natal, []).concat(
+    // the year against its decade: the full set of stem/branch bonds and clashes, since this is the headline relation
+    cycleMajority ? [
+      ...(STEM_BOND[yearFlow.stemIdx] === cycleMajority.stemIdx ? [{ kind: 'stem-bond', tgt: 'cycle', part: 'stem' }] : []),
+      ...(STEM_CLASH_PAIR[yearFlow.stemIdx] === cycleMajority.stemIdx ? [{ kind: 'stem-clash', tgt: 'cycle', part: 'stem' }] : []),
+      ...(branchBondElem(yearFlow.branchIdx, cycleMajority.branchIdx) ? [{ kind: 'branch-bond', tgt: 'cycle', part: 'branch', elem: branchBondElem(yearFlow.branchIdx, cycleMajority.branchIdx).elem }] : []),
+      ...computeFlowInteractions(yearFlow, [], yearTargets)
+    ] : []);
+  const monthKeys = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1];
+  const months = monthKeys.map((key, i) => {
+    const startMs = jieMoment(key === 1 ? year + 1 : year, key).getTime();
+    const endMs = i === 11 ? yearEndMs : jieMoment(monthKeys[i + 1] === 1 ? year + 1 : year, monthKeys[i + 1]).getTime();
+    const ly = computeLiuYuePillar(liuNian.stemIdx, key);
+    const cyc = cycleAtMs((startMs + endMs) / 2);
+    const cycStart = cycleAtMs(startMs), cycEnd = cycleAtMs(endMs - 1);
+    const flow = { stemIdx: ly.stemIdx, branchIdx: ly.branchIdx };
+    const targets = [{ key: 'flowYear', stemIdx: liuNian.stemIdx, branchIdx: liuNian.branchIdx }, flowTarget('cycle', cyc)].filter(Boolean);
+    const elem = elemOfStem(ly.stemIdx);
+    const favourable = fav.includes(elem);
+    return {
+      key, calendarMonth: key, startMs, endMs, stemIdx: ly.stemIdx, branchIdx: ly.branchIdx,
+      stemGod: getTenGod(dm, ly.stemIdx), branchGod: getTenGod(dm, HIDDEN_STEMS_BY_BRANCH[ly.branchIdx][0]),
+      elem, favourable, balancing: favourable ? null : computeBalancingElement(elem, fav),
+      phase: computeGrowthPhase(dm, ly.branchIdx),
+      interactions: computeFlowInteractions(flow, natal, targets), combos: computeTenGodCombos(dm, ly.stemIdx, bazi),
+      stars: computeStarsForPillar(ctx, ly.stemIdx, ly.branchIdx, null, false),
+      cycle: cyc, cycleChanges: !!(cycStart && cycEnd && cycStart !== cycEnd)
+    };
+  });
+  return {
+    year, liuNian, startMs: yearStartMs, endMs: yearEndMs, cycle: cycleMajority,
+    cycleYearNumber: (() => { if (!cycleMajority) return null; const sY = new Date(cycleMajority.startMs).getUTCFullYear(); const lyY = cycleMajority.startMs < jieMoment(sY, 2).getTime() ? sY - 1 : sY; const a = jieMoment(lyY, 2).getTime(), b = jieMoment(lyY + 1, 2).getTime(); const y0 = (b - cycleMajority.startMs) > (cycleMajority.startMs - a) ? lyY : lyY + 1; return year - y0 + 1; })(),
+    stemGod: getTenGod(dm, liuNian.stemIdx), branchGod: getTenGod(dm, HIDDEN_STEMS_BY_BRANCH[liuNian.branchIdx][0]),
+    elem: elemOfStem(liuNian.stemIdx), favourable: fav.includes(elemOfStem(liuNian.stemIdx)),
+    phase: computeGrowthPhase(dm, liuNian.branchIdx), interactions: yearInteractions, combos: computeTenGodCombos(dm, liuNian.stemIdx, bazi),
+    stars: computeStarsForPillar(ctx, liuNian.stemIdx, liuNian.branchIdx, null, false),
+    guardians: computeYearGuardians(liuNian.branchIdx), sectors: computeAnnualSectorGuide(year),
+    months, usefulGod: analysis.usefulGod, dmStrength: analysis.dmStrength
+  };
 }
 
 // ============================================================

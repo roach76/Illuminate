@@ -13,7 +13,7 @@ function check(cond, msg) { if (cond) pass++; else { fail++; console.error('FAIL
 const appSrc = fs.readFileSync(path.join(__PROJECT_ROOT__, 'app.js'), 'utf8');
 check(/function computeDaYunAnnualDeepReading\(p, yearsCount\)/.test(fs.readFileSync(path.join(__PROJECT_ROOT__, 'engine-metaphysics.js'), 'utf8')), 'engine function exists');
 check(/type === 'dayun_annual_deep'/.test(appSrc), 'deep-analysis branch exists');
-check(/\$\{generateDaYunAnnualDeepReadingHTML\(p\)\}\s*\n\s*\$\{artDaYun3YearMonthly\}/.test(appSrc), 'annual cards are rendered in the Da Yun section, before the monthly table');
+check(appSrc.indexOf('${generateDaYunAnnualDeepReadingHTML(p)}') > 0 && appSrc.indexOf('${generateDaYunAnnualDeepReadingHTML(p)}') < appSrc.indexOf('${generateYearlyInsightsHTML(p)}') && appSrc.indexOf('${generateYearlyInsightsHTML(p)}') < appSrc.indexOf('${artDaYun3YearMonthly}\n'), 'annual cards are rendered in the Da Yun section, then the Yearly Insights, before the monthly table');
 
 function freshSandbox() {
   const dom = new JSDOM(fs.readFileSync(path.join(__PROJECT_ROOT__, 'index.html'), 'utf8'), { url: 'http://localhost/', runScripts: 'outside-only' });

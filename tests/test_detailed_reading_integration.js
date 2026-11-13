@@ -79,7 +79,7 @@ check(/<option value="round" selected(="")?>/.test(scratch2.innerHTML) && /<opti
 // --- 3. Main profile: every system contributes, every section carries a cross-system block ---
 const integ = JSON.parse(run(`(function(){ const i = buildIntegratedSignals(getProfileData(), 'i'); return JSON.stringify({ n: i.signals.length, bySys: i.signals.reduce((o, s) => { o[s.sys] = (o[s.sys] || 0) + 1; return o; }, {}), unavailable: i.unavailable }); })()`));
 const SYSTEM_KEYS = JSON.parse(run(`JSON.stringify(INTEG_SYSTEMS.map(s => s.key))`));
-check(SYSTEM_KEYS.length === 19, `19 systems are tracked (${SYSTEM_KEYS.length})`);
+check(SYSTEM_KEYS.length === 20 && SYSTEM_KEYS.includes('yearly'), `20 systems are tracked, including Yearly Insights (${SYSTEM_KEYS.length})`);
 SYSTEM_KEYS.forEach(k => check((integ.bySys[k] || 0) >= 1, `system ${k} contributes at least one signal for a fully populated main profile (${integ.bySys[k] || 0})`));
 check(integ.unavailable.length === 0, 'no system failed to compute');
 const html = run(`generateDetailedReading(getProfileData(), 'i')`);
