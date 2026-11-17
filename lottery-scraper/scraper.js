@@ -125,32 +125,62 @@ function parsePast4DTable(text) {
 }
 
 // ---- Live page: full breakdown for the current draw ----
-function parseFourDLive(text) {
+// `isoDateHint` is only for the per-date pages (past/YYYY-MM-DD/), whose header differs from the live page's: they read
+// "Singapore 4D result for Saturday, 14 November 2026 (14/11/2026) - draw 5561/26." instead of "Draw 5562/26 Sun 2026-11-15".
+// The old parser only knew the live header, so every attempt to upgrade a partial draw from its own page threw and was silently
+// swallowed - which is why dozens of draws stayed at 1st/2nd/3rd only. The hint is cross-checked against the page's own
+// "(dd/mm/yyyy)" date so a redirected or wrong page can never be merged under the wrong date.
+function parseFourDLive(text, isoDateHint) {
+  let drawNo, dayAbbr, isoDate, afterDraw;
   const drawMatch = text.match(/Draw\s+(\d+\/\d+)\s*([A-Za-z]{3})\s+(\d{4}-\d{2}-\d{2})/);
-  if (!drawMatch) throw new Error('Could not locate 4D draw header');
-  const [, drawNo, dayAbbr, isoDate] = drawMatch;
-  const afterDraw = text.slice(drawMatch.index);
+  if (drawMatch) {
+    [, drawNo, dayAbbr, isoDate] = drawMatch;
+    afterDraw = text.slice(drawMatch.index);
+  } else if (isoDateHint) {
+    const m = text.match(/\bdraw\s+(\d+\/\d+)/i);
+    if (!m) throw new Error('Could not locate 4D draw header');
+    const [y, mo, d] = isoDateHint.split('-');
+    if (!text.includes(`(${d}/${mo}/${y})`)) throw new Error('Per-date page does not show the requested date ' + isoDateHint);
+    drawNo = m[1]; isoDate = isoDateHint;
+    dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(isoDateHint + 'T00:00:00Z').getUTCDay()];
+    afterDraw = text.slice(m.index);
+  } else {
+    throw new Error('Could not locate 4D draw header');
+  }
 
   const onest = afterDraw.match(/1st[^\d]*(\d{4})/);
   const twond = afterDraw.match(/2nd[^\d]*(\d{4})/);
   const threerd = afterDraw.match(/3rd[^\d]*(\d{4})/);
   if (!onest || !twond || !threerd) throw new Error('Could not locate 4D 1st/2nd/3rd prize numbers');
 
-  const specialBlockMatch = afterDraw.match(/Special[^0-9]*((?:\d{4}\D+){1,10})/);
-  const consolationBlockMatch = afterDraw.match(/Consolation[^0-9]*((?:\d{4}\D+){1,10})/);
-  const extractNums = (block) => (block ? block[1].match(/\d{4}/g) || [] : []);
-  const special = extractNums(specialBlockMatch);
-  const consolation = extractNums(consolationBlockMatch);
+  // BUG FIX (reported: "why are the results for consolation numbers for 4D not showing?"): check4d.co renamed the second block from
+  // "Special" to "Starter" (Singapore Pools' current name; each label is now followed by its Chinese name, e.g. "Starter 入围奖").
+  // This regex only knew "Special", so it found NO starters, and the 10 consolation numbers then landed in the starter positions
+  // (winning[3..12]) - the app showed them as Starters and had nothing left for Consolation. Both names are now accepted.
+  // SAFETY: a draw is recorded as FULL only when BOTH blocks yield exactly 10 numbers. Anything else keeps just the verified top
+  // three (full:false, so a later run retries it) - a half-parsed block must never be stored where it shifts prize positions.
+  // Each block's numbers are read only up to the next Latin-letter label ("Consolation", "Singapore", "Thu"...), so a short block can
+  // never run on into its neighbour or pick up an unrelated 4-digit number such as the next game's draw number.
+  const blockNumbers = (labelRe) => {
+    const m = afterDraw.match(labelRe);
+    if (!m) return [];
+    const rest = afterDraw.slice(m.index + m[0].length);
+    const cut = rest.search(/[A-Za-z]{3,}/);
+    return (cut === -1 ? rest : rest.slice(0, cut)).match(/(?<!\d)\d{4}(?!\d)/g) || [];
+  };
+  const starters = blockNumbers(/Starter|Special/);
+  const consolation = blockNumbers(/Consolation/);
 
-  const winning = [onest[1], twond[1], threerd[1], ...special, ...consolation];
-  return { isoDate, date: formatIsoDate(isoDate, dayAbbr), drawNo, winning, full: winning.length >= 23 };
+  const isFull = starters.length === 10 && consolation.length === 10;
+  const winning = isFull ? [onest[1], twond[1], threerd[1], ...starters, ...consolation] : [onest[1], twond[1], threerd[1]];
+  return { isoDate, date: formatIsoDate(isoDate, dayAbbr), drawNo, winning, full: isFull };
 }
 // BUG FIX: this parser works on ANY page with the "Draw NNNN/YY Day YYYY-MM-DD ... 1st/2nd/3rd ...
 // Special ... Consolation ..." format - it isn't actually specific to the live page, just named after
 // its original use. Individual past-date pages (https://check4d.co/sgpools/past/YYYY-MM-DD/) are
 // presumed to share this same per-draw layout (unconfirmed - see fetchFullDetailForDate below), so
 // this same function is reused rather than duplicated for that case.
-const parseFourDFullBreakdown = parseFourDLive;
+const parseFourDFullBreakdown = (text, isoDateHint) => parseFourDLive(text, isoDateHint);
 
 // ENHANCEMENT (this round): the past-results TABLE only ever gives 1st/2nd/3rd for historical dates
 // (that's all it exposes), which is why browsing an older date previously showed "partial data" -
@@ -162,7 +192,7 @@ const parseFourDFullBreakdown = parseFourDLive;
 async function fetchFullDetailForDate(isoDate) {
   try {
     const html = await fetchPage(`https://check4d.co/sgpools/past/${isoDate}/`);
-    return parseFourDFullBreakdown(htmlToText(html));
+    return parseFourDFullBreakdown(htmlToText(html), isoDate);
   } catch (e) {
     return null;
   }
@@ -330,7 +360,11 @@ async function main() {
   if (history.toto.length < MIN_TARGET_DRAWS) console.log(`TOTO repository is at ${history.toto.length}/${MIN_TARGET_DRAWS} draws toward the target - will keep growing on every future run, nothing is ever dropped.`);
 }
 
-main().catch(err => {
-  console.error('Scrape failed:', err.message);
-  process.exit(1);
-});
+// Exported for tests/test_lottery_scraper_parse.js; the scrape itself only runs when this file is executed directly.
+module.exports = { parseFourDLive, parsePast4DTable, htmlToText, mergeEntry };
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Scrape failed:', err.message);
+    process.exit(1);
+  });
+}

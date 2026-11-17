@@ -687,8 +687,8 @@ function renderAccuracyBlock(acc, gameKey, isZh) {
       ${statRow(isZh ? '命中首奖' : 'Struck 1st prize', acc.firstPct)}
       ${statRow(isZh ? '命中二奖' : 'Struck 2nd prize', acc.secondPct)}
       ${statRow(isZh ? '命中三奖' : 'Struck 3rd prize', acc.thirdPct)}
-      ${statRow(isZh ? '命中安慰奖' : 'Struck Starter prize', acc.starterPct)}
-      ${statRow(isZh ? '命中特别奖' : 'Struck Consolation prize', acc.consolationPct)}
+      ${statRow(isZh ? '命中入围奖' : 'Struck Starter prize', acc.starterPct)}
+      ${statRow(isZh ? '命中安慰奖' : 'Struck Consolation prize', acc.consolationPct)}
     </div>`;
     return `<div class="calc-box" style="font-size:11px;margin-bottom:8px;border-left-color:#1565c0;background:#e3f2fd">
       <strong>${isZh ? '📊 历史准确率（共 ' + acc.checkedCount + ' 期已核实）' : `📊 Historical Accuracy (${acc.checkedCount} draws verified)`}</strong>${compositionNote}<br>
@@ -744,8 +744,8 @@ function renderFavouriteAccuracyBlock(acc, gameKey, isZh) {
       ${statRow(isZh ? '命中首奖' : 'Struck 1st prize', acc.firstPct)}
       ${statRow(isZh ? '命中二奖' : 'Struck 2nd prize', acc.secondPct)}
       ${statRow(isZh ? '命中三奖' : 'Struck 3rd prize', acc.thirdPct)}
-      ${statRow(isZh ? '命中安慰奖' : 'Struck Starter prize', acc.starterPct)}
-      ${statRow(isZh ? '命中特别奖' : 'Struck Consolation prize', acc.consolationPct)}
+      ${statRow(isZh ? '命中入围奖' : 'Struck Starter prize', acc.starterPct)}
+      ${statRow(isZh ? '命中安慰奖' : 'Struck Consolation prize', acc.consolationPct)}
     </div>`;
     return `<div class="calc-box" style="font-size:11px;margin-bottom:8px;border-left-color:#b8860b;background:#fdf6e3">
       <strong>${isZh ? `⭐ 幸运号码历史准确率（共 ${acc.favouritesCount} 个号码，核对 ${acc.checkedCount} 期）` : `⭐ Favourite Numbers Historical Accuracy (${acc.favouritesCount} numbers, checked against ${acc.checkedCount} draws)`}</strong><br>
@@ -886,8 +886,8 @@ function renderSingleDrawDetail(gameKey, isoDate, isZh) {
     return `<div style="font-size:12px;line-height:1.8">
       <strong>${bt('Draw','开奖')} ${draw.drawNo} - ${draw.date}</strong>${anomalyNote}<br>
       <div style="margin-top:6px"><strong>${bt('Top 3','前三奖')}:</strong> <span style="color:var(--plum)">1st:</span> ${highlightWithFavourites4D(nums[0], [], favourites)}, <span style="color:var(--plum)">2nd:</span> ${highlightWithFavourites4D(nums[1], [], favourites)}, <span style="color:var(--plum)">3rd:</span> ${highlightWithFavourites4D(nums[2], [], favourites)}</div>
-      <div style="margin-top:4px;font-size:11px"><strong>${bt('Starter','安慰')}:</strong> ${startersStr}</div>
-      <div style="margin-top:2px;font-size:11px"><strong>${bt('Consolation','特别')}:</strong> ${consolationsStr}</div>
+      <div style="margin-top:4px;font-size:11px"><strong>${bt('Starter','入围奖')}:</strong> ${startersStr}</div>
+      <div style="margin-top:2px;font-size:11px"><strong>${bt('Consolation','安慰奖')}:</strong> ${consolationsStr}</div>
     </div>`;
   } else {
     const mainRendered = draw.winning.map(n => highlightWithFavouritesTOTO(n, [], favourites, false)).join(', ');
