@@ -234,3 +234,75 @@ strong { color: inherit; }
 .xs-pick[aria-pressed="true"] { border-color: var(--gold); background: var(--goldsoft); box-shadow: 0 0 0 2px var(--gold) inset; font-weight: 700; }
 .xs-picks-lg .xs-pick { width: 94px; }
 .xs-picks-lg .xs-pick svg { width: 80px; height: 80px; }
+
+/* ==========================================================================================================
+   RESPONSIVE SHELL (reported: "redesign this site to be viewable on any type of browsers on both mobile and
+   desktop"). The app used to be a fixed 430px phone column centred on every screen. Now:
+     - phones (< 640px):   full-width, single column, bottom navigation (as before, minus the 430px cap);
+     - tablets (640-1023): a wider centred column (760px), bottom navigation;
+     - desktop (>= 1024):  a persistent left sidebar for navigation and a wide content column, with the form
+                           screens (welcome / sign-in / intake) kept at a comfortable reading width.
+   EVERY selector below starts with :root / html / body / .app / .top-bar / .nav / .view / .modal-*, never a bare
+   content class. That is deliberate: the PDF export clones report content into its own fixed 420px container
+   appended to <body> (outside .app), and must keep rendering exactly as before. tests/test_responsive_shell.js
+   enforces this. Cross-browser notes are inline.
+   ========================================================================================================== */
+:root { color-scheme: light; --shell-w: 100%; --nav-w: 232px; --bar-h: 66px; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif; }
+img, svg, video { max-width: 100%; }
+
+/* phones: use the whole width (the old 430px cap made large phones and small tablets look like a narrow strip) */
+.app, .top-bar, .nav { width: 100%; }
+/* notched phones / home-indicator bars (needs viewport-fit=cover, set in index.html); the plain padding stays as the fallback */
+.top-bar { padding-top: 15px; padding-top: calc(15px + env(safe-area-inset-top, 0px)); padding-left: 23px; padding-left: max(23px, env(safe-area-inset-left, 0px)); padding-right: 23px; padding-right: max(23px, env(safe-area-inset-right, 0px)); }
+.app { padding-top: 66px; padding-top: calc(var(--bar-h) + env(safe-area-inset-top, 0px)); }
+.view { padding-left: 23px; padding-left: max(23px, env(safe-area-inset-left, 0px)); padding-right: 23px; padding-right: max(23px, env(safe-area-inset-right, 0px)); padding-bottom: 90px; padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+.nav { padding-bottom: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+/* iOS / Android browsers whose 100vh includes the collapsing address bar */
+@supports (height: 100dvh) { .app, .view { min-height: 100dvh; } }
+/* browsers without the `inset` shorthand (Safari < 14.1, older Samsung Internet) */
+.modal-overlay { top: 0; right: 0; bottom: 0; left: 0; }
+@media (max-width: 480px) { .modal-box { top: 0; right: 0; bottom: 0; left: 0; } }
+/* keyboard users on desktop: a visible focus ring (the default one is suppressed by several button resets above) */
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.app button:focus:not(:focus-visible), .app input:focus:not(:focus-visible), .app select:focus:not(:focus-visible) { outline: none; }
+/* hover affordances only where hover exists, so touch screens never show a "stuck" hover state */
+@media (hover: hover) and (pointer: fine) {
+  .nav button:hover { color: var(--plum); }
+  .app .mini:hover { border-color: var(--gold); }
+}
+@media (prefers-reduced-motion: reduce) { .app *, .modal-box { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; } }
+
+/* tablets and small laptops */
+@media (min-width: 640px) {
+  .app, .top-bar, .nav { width: min(100%, 760px); }
+  .view { padding-left: 32px; padding-right: 32px; }
+  .top-bar { padding-left: 32px; padding-right: 32px; }
+  .app .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .modal-box { width: min(92vw, 520px); }
+}
+
+/* desktop: sidebar navigation + wide content */
+@media (min-width: 1024px) {
+  body { background: #f3f0ea; }
+  .app { width: 100%; max-width: none; margin: 0; box-shadow: none; background: var(--paper); }
+  .top-bar { left: 0; transform: none; width: 100%; padding-left: 28px; padding-right: 28px; box-shadow: 0 1px 0 var(--line); }
+  .view { max-width: 1040px; margin-left: auto; margin-right: auto; padding-left: 40px; padding-right: 40px; padding-top: 24px; padding-bottom: 60px; }
+  /* sign-in / welcome / intake have no navigation: keep their forms at a comfortable reading width */
+  body:not(.has-nav) .view { max-width: 680px; }
+  body.has-nav .app { padding-left: var(--nav-w); }
+  .nav { top: 66px; top: var(--bar-h); bottom: 0; left: 0; transform: none; width: var(--nav-w); flex-direction: column; justify-content: flex-start; gap: 2px; padding: 16px 12px; border-top: 0; border-right: 1px solid var(--line); overflow-y: auto; }
+  .nav button { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-start; gap: 12px; font-size: 14px; padding: 11px 14px; border-radius: 10px; text-align: left; }
+  .nav button span { overflow: visible; max-width: none; }
+  .nav i { width: 24px; text-align: center; font-size: 18px; }
+  .nav button.active { background: var(--goldsoft); }
+  .nav button:hover { background: var(--sand); }
+  .app .grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .modal-box { width: min(92vw, 640px); max-height: 82vh; }
+}
+/* very wide monitors: stop the content stretching past a readable measure */
+@media (min-width: 1600px) { .view { max-width: 1160px; } }
+/* short landscape phones: shrink the fixed chrome so the content keeps room */
+@media (max-height: 480px) and (orientation: landscape) and (max-width: 1023px) { .nav button { font-size: 9px; } .nav i { font-size: 14px; } .view { padding-bottom: 70px; } }

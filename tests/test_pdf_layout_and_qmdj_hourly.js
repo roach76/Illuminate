@@ -198,8 +198,11 @@ const timingTabHTML = run(`chartTabRegistry['i'].timing`);
 check(typeof timingTabHTML === 'string' && timingTabHTML.includes('Daily QMDJ Chart'), 'the Timing tab (read via chartTabRegistry, exactly as buildProfilePdfHTML does) contains the Daily QMDJ Chart section');
 check(timingTabHTML.includes("Today's Hourly (Shi Chen) Breakdown"), 'the Timing tab contains the new hourly breakdown heading');
 const hourlySectionStart = timingTabHTML.indexOf("Today's Hourly (Shi Chen) Breakdown");
-const hourlySectionHTML = timingTabHTML.slice(hourlySectionStart, hourlySectionStart + 8000);
-const tableRowCount = (hourlySectionHTML.match(/<tr style="[^"]*">/g) || []).length;
+// Measure the whole table (heading to its closing </table>) rather than a fixed-size character window: the old 8000-char window
+// sat right on the 12th row and changed result with tiny length differences in the rows (e.g. the "current hour" row).
+const hourlyTableStart = timingTabHTML.indexOf('<table', hourlySectionStart);
+const hourlySectionHTML = timingTabHTML.slice(hourlyTableStart, timingTabHTML.indexOf('</table>', hourlyTableStart));
+const tableRowCount = (hourlySectionHTML.match(/<tr style="[^"]*">/g) || []).length - 1; // minus the header row
 check(tableRowCount === 12, `the hourly breakdown table renders all 12 Shi Chen rows (got ${tableRowCount})`);
 
 console.log(`${pass} passed, ${fail} failed`);
